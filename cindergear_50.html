@@ -43,19 +43,35 @@ const FLAMES=[
   {id:'void',name:'VOID PLASMA',c1:2,c2:14,c3:7,cost:80,desc:'2X DMG / -20 MAX FUEL',fuelMod:-20,spdMod:1.05,dmgMod:2,pierce:false},
   {id:'solar',name:'SOLAR CROWN',c1:9,c2:10,c3:7,cost:150,desc:'2X DMG + PIERCING +25 FUEL',fuelMod:25,spdMod:1.15,dmgMod:2,pierce:true}
 ];
-let SAVE={bank:0,unlocked:['amber'],selected:'amber',bestFloor:1,lore:[]};
+let SAVE={bank:0,unlocked:['amber'],selected:'amber',bestFloor:1,lore:[],checkpoints:[1]};
 try{
   const raw=localStorage.getItem('cindergear_save_v50');
   if(raw)Object.assign(SAVE,JSON.parse(raw));
   if(!Array.isArray(SAVE.lore))SAVE.lore=[];
+  if(!Array.isArray(SAVE.checkpoints)||!SAVE.checkpoints.length)SAVE.checkpoints=[1];
+  if(!SAVE.checkpoints.includes(1))SAVE.checkpoints.unshift(1);
 }catch(e){}
 let previewFlameId=SAVE.selected;
+let selectedCheckpoint=SAVE.checkpoints[SAVE.checkpoints.length-1]||1;
 if(!SAVE.unlocked.includes(SAVE.selected))SAVE.selected='amber';
-function saveGame(){try{localStorage.setItem('cindergear_save_v50',JSON.stringify(SAVE));}catch(e){}}
+function saveGame(){
+  SAVE.checkpoints=[...new Set(SAVE.checkpoints)].sort((a,b)=>a-b);
+  try{localStorage.setItem('cindergear_save_v50',JSON.stringify(SAVE));}catch(e){}
+}
+function unlockCheckpoint(flr){
+  if(flr>=1&&flr<=50&&!SAVE.checkpoints.includes(flr)){
+    SAVE.checkpoints.push(flr);
+    SAVE.checkpoints.sort((a,b)=>a-b);
+    selectedCheckpoint=flr;
+    saveGame();
+    return true;
+  }
+  return false;
+}
 function getFlame(){return FLAMES.find(f=>f.id===SAVE.selected)||FLAMES[0];}
 function getPreviewFlame(){return FLAMES.find(f=>f.id===previewFlameId)||getFlame();}
 
-// ================= BIOMES, BOSSES & LORE DATABASE =================
+// ================= BIOMES, BOSSES & 50-FLOOR FULL STORY DATABASE =================
 const BIOMES=[
   {name:'THE SOOT WORKS',floorCol:1,groutCol:0,wallTop:6,wallBody:5,accent:9,desc:'CLOCKWORK FOUNDRIES'},
   {name:'BRINE AQUEDUCTS',floorCol:1,groutCol:12,wallTop:12,wallBody:1,accent:12,desc:'FLOODED CRYO-CHAMBERS'},
@@ -73,89 +89,157 @@ const BIOME_INTROS={
 function getBiome(n){return BIOMES[Math.min(4,Math.floor((n-1)/10))];}
 
 const BOSS_DATA={
-  5:{name:'IRON WARDEN',hp:18,type:'warden',c1:9,c2:4},
-  10:{name:'THE CROWN WARDEN',hp:32,type:'warden',c1:10,c2:8},
-  15:{name:'BRINE LEVIATHAN',hp:44,type:'leviathan',c1:12,c2:1},
-  20:{name:'CRYO-MATRIARCH',hp:56,type:'cryo',c1:7,c2:12},
-  25:{name:'VOLT SOVEREIGN',hp:68,type:'volt',c1:10,c2:13},
-  30:{name:'GRAND INQUISITOR',hp:82,type:'inquisitor',c1:6,c2:8},
-  35:{name:'MAGMA BEHEMOTH',hp:98,type:'magma',c1:8,c2:9},
-  40:{name:'AETHER WEAVER',hp:114,type:'weaver',c1:14,c2:2},
-  45:{name:'OMEGA SENTINEL',hp:132,type:'omega',c1:10,c2:8},
-  50:{name:'THE PRIME IGNITER',hp:165,type:'prime',c1:7,c2:10}
+  5:{name:'IRON WARDEN',hp:32,type:'warden',c1:9,c2:4},
+  10:{name:'THE CROWN WARDEN',hp:54,type:'warden',c1:10,c2:8},
+  15:{name:'BRINE LEVIATHAN',hp:76,type:'leviathan',c1:12,c2:1},
+  20:{name:'CRYO-MATRIARCH',hp:98,type:'cryo',c1:7,c2:12},
+  25:{name:'VOLT SOVEREIGN',hp:122,type:'volt',c1:10,c2:13},
+  30:{name:'GRAND INQUISITOR',hp:148,type:'inquisitor',c1:6,c2:8},
+  35:{name:'MAGMA BEHEMOTH',hp:176,type:'magma',c1:8,c2:9},
+  40:{name:'AETHER WEAVER',hp:205,type:'weaver',c1:14,c2:2},
+  45:{name:'OMEGA SENTINEL',hp:240,type:'omega',c1:10,c2:8},
+  50:{name:'THE PRIME IGNITER',hp:310,type:'prime',c1:7,c2:10}
 };
 
-const LORE_ENTRIES=[
-  {id:0,title:'01: THE ETERNAL HEARTH',lines:[
-    'CENTURIES AGO, THE SMITHS',
-    'FORGED THE PRIME IGNITER',
-    'AT FLOOR 50. ITS GOLDEN',
-    'HEAT KEPT THE SKY ALIVE.'
-  ]},
-  {id:1,title:'02: THE GREAT BETRAYAL',lines:[
-    'FEARING THE CORE WOULD',
-    'MELT THEIR CITADEL, THE',
-    'COUNCIL SEALED THE SHAFT',
-    'AND LEFT US TO FREEZE.'
-  ]},
-  {id:2,title:'03: IRON WARDENS',lines:[
-    'IN THE SOOT WORKS, RUSTED',
-    'AUTOMATA STILL GUARD THE',
-    'COAL CHUTES. THEIR GEARS',
-    'GRIND ON BLIND ORDERS.'
-  ]},
-  {id:3,title:'04: THE QUENCHING',lines:[
-    'AT FLOOR 11, THE COUNCIL',
-    'BROKE THE GLACIER DAMS.',
-    'BRINE LEVIATHANS NOW',
-    'PROWL THE FLOODED HALLS.'
-  ]},
-  {id:4,title:'05: VOLTAIC HARVEST',lines:[
-    'DEEP IN THE GRID, STATIC',
-    'BEETLES DRINK THE STORM.',
-    'ONE SPARK IN THE WATER',
-    'TURNS THE FLOOR TO LIGHT.'
-  ]},
-  {id:5,title:'06: FIVE FLAME CORES',lines:[
-    'FIVE PROTOTYPE SPARKS',
-    'WERE BUILT BEFORE THE',
-    'FALL: AMBER, COBALT,',
-    'WILDFIRE, VOID, AND SUN.'
-  ]},
-  {id:6,title:'07: ASH & BLOOD ALTARS',lines:[
-    'TRAPPED MINERS CARVED',
-    'SHRINES FROM OBSIDIAN.',
-    'THEY TRADED THEIR OWN',
-    'LIFE-FLAME FOR POWER.'
-  ]},
-  {id:7,title:'08: ROYAL INQUISITORS',lines:[
-    'THE COUNCIL SENT VOID-',
-    'SHIELDED KNIGHTS BELOW',
-    'TO HUNT EVERY REMAINING',
-    'CINDERGEAR UNIT.'
-  ]},
-  {id:8,title:'09: UNIT-09 AWAKENS',lines:[
-    'EIGHT UNITS FLICKERED',
-    'OUT IN THE DARK. YOU',
-    'ARE UNIT-09 - THE LAST',
-    'PILOT LIGHT STILL LIT.'
-  ]},
-  {id:9,title:'10: THE SOLAR CROWN',lines:[
-    'SHATTER THE PRIME IGNITER',
-    'AT FLOOR 50, CLAIM THE',
-    'CROWN, AND THAW THE',
-    'FROZEN WORLD ABOVE.'
-  ]}
+const STORY_CHRONICLES=[
+  {title:'01: THE LAST PILOT LIGHT',text:'FOR THREE HUNDRED WINTERS, THE UPPER CITADEL SURVIVED ON HEAT PUMPED UPWARD FROM THE ABYSSAL HEARTH. WHEN THE GREAT SHAFT SEALED SHUT, EIGHT CINDERGEAR UNITS DESCENDED INTO THE DARK AND FLICKERED OUT. YOU ARE UNIT-09, THE LAST PILOT LIGHT STILL BURNING.'},
+  {title:'02: CHARCOAL ARCHIVES',text:'SOOT-STAINED LEDGERS LINE THESE WALLS, RECORDING MILLIONS OF TONS OF BLACK COAL SHOVELED BY AUTOMATA HANDS. THE MINERS BELIEVED THEY WERE FEEDING A SACRED SUN BENEATH THE EARTH, NEVER KNOWING THEIR OWN RULERS PLANNED TO EXTINGUISH IT.'},
+  {title:'03: BLIND CLOCKWORK',text:'THE CLOCKWORK STALKERS PATROLLING THESE CORRIDORS WERE ONCE MAINTENANCE DRONES. WITHOUT A SIGNAL FROM THE CENTRAL SPIRE, THEIR GEARS GRIND IN ENDLESS CIRCLES, LUNGING AT ANY HEAT SIGNATURE THAT INTERRUPTS THEIR RUSTED ROUTINE.'},
+  {title:'04: THE SEALING DECREE',text:'ENGRAVED IN BRASS IS EDICT ZERO: BY ORDER OF THE HIGH COUNCIL, THE LOWER SHAFT IS CONDEMNED. BETTER A SLOW FREEZE IN THE MARBLE HALLS ABOVE THAN ALLOWING THE OVERHEATED CORE TO SHATTER OUR FOUNDATIONS.'},
+  {title:'05: WARDEN OF GATE ONE',text:'THE IRON WARDEN WAS FORGED FROM MELTED LOCOMOTIVE PLATES TO GUARD THE FIRST ELEVATOR LOCK. ITS FURNACE CHEST STILL GLOWS WITH STOLEN EMBERS TAKEN FROM UNIT-03 WHEN HE FELL HERE DECADES AGO.'},
+  {title:'06: TINKERERS IN THE ASH',text:'NOT ALL SURFACE DWELLERS OBEYED THE COUNCIL. ROGUE ENGINEERS SMUGGLED BLUEPRINTS AND EXPERIMENTAL NOZZLES DOWN THE AIR DUCTS, HIDING UPGRADE TERMINALS BETWEEN FLOORS FOR ANY SPARK BRAVE ENOUGH TO REACH THE BOTTOM.'},
+  {title:'07: OIL BARREL CACHES',text:'VOLATILE WHALE-OIL CASKS WERE STACKED IN EVERY JUNCTION TO BLAST NEW TUNNELS. A SINGLE SPARK TURNS THEM INTO MINIATURE STARS, CRACKING REINFORCED MASONRY AND VAPORIZING ANYTHING CAUGHT IN THEIR SHOCKWAVE.'},
+  {title:'08: UNIT-05 FINAL LOG',text:'SCRATCHED INTO THE STONE: MY FUEL TANK IS CRACKED AND THE WATER RISES FROM BELOW. IF UNIT-09 READS THIS, DO NOT WASTE YOUR FLAME ON ARMORED SHIELDS. MELT THE GRATES AND KEEP MOVING DOWNWARD.'},
+  {title:'09: THE CROWN GATEWAY',text:'AHEAD LIES THE THRESHOLD BETWEEN THE DRY FOUNDRIES AND THE FLOODED AQUEDUCTS. THE AIR GROWS BITTERLY COLD HERE, CONDENSING INTO FROST THAT HUNGRILY DRINKS THE WARMTH FROM ANY UNGUARDED CORE.'},
+  {title:'10: FALL OF THE CROWN WARDEN',text:'THE CROWN WARDEN CARRIED THE MASTER KEY TO THE LOWER RESERVOIR. WITH HIS ARMOR SHATTERED, THE FLOODGATES GROAN OPEN, REVEALING THE SUBMERGED CAVERNS WHERE THE COUNCIL DROWNED THE WORLD.'},
+  {title:'11: THE GREAT QUENCHING',text:'UNABLE TO SNUFF OUT THE PRIME IGNITER BY FORCE, THE COUNCIL DYNAMITED THE SUBTERRANEAN GLACIER DAMS. BILLIONS OF GALLONS OF FREEZING BRINE POURED INTO THE SHAFT, DROWNING ENTIRE DISTRICTS IN STEAM AND ICE.'},
+  {title:'12: HYDRO-DRONES',text:'AMPHIBIOUS REPAIR DRONES ADAPTED TO THE FLOOD BY SIPHONING SCALDING WATER INTO PRESSURIZED TANKS. THEY SPIT BOILING JETS TO EXTINGUISH ROGUE FIRES, PROTECTING THE SUBMERGED PIPELINES FROM THERMAL RUPTURE.'},
+  {title:'13: STEAM VEIL THEORY',text:'WHEN EXTREME HEAT STRIKES STANDING WATER, DENSE CLOUDS OF OPPRESSIVE STEAM ERUPT INSTANTLY. CLEVER CINDERGEAR UNITS LEARNED TO SLIP INSIDE THESE VAPOR CLOUDS, VANISHING FROM MECHANICAL OPTICS.'},
+  {title:'14: FROZEN SENTINELS',text:'THICK WALLS OF GLACIAL ICE BLOCK THE OLD MAINTENANCE SHAFTS. RADIATING BODY HEAT ALONE CAN THAW THEM SLOWLY, BUT A DIRECT BLAST OF FIREBALL PLASMA TURNS SOLID FROST BACK INTO FLOWING WATER.'},
+  {title:'15: THE BRINE LEVIATHAN',text:'SWOLLEN WITH MINERAL SALTS AND CRYO-COOLANT, THE LEVIATHAN COILS AROUND THE FIFTEENTH PUMP STATION. IT SWALLOWED THREE SCOUT UNITS WHOLE, THEIR DIMMING CORES STILL FLICKERING BEHIND ITS RIBS.'},
+  {title:'16: SALT-CORRODED PIPES',text:'THE AQUEDUCTS WERE BUILT TO CARRY COOLING WATER TO THE REACTOR, NOT TO FLOOD IT. NOW BRINE DRIPS FROM EVERY CEILING JOINT, HISSING VIOLENTLY WHENEVER IT TOUCHES YOUR SUPERHEATED CHASSIS.'},
+  {title:'17: WHISPERS OF THE HEARTH',text:'EVEN THROUGH TEN LEVELS OF ICE WATER, A FAINT GOLDEN PULSE VIBRATES THROUGH THE FLOORPLATES. THE PRIME IGNITER IS STILL ALIVE AT FLOOR 50, WAITING FOR A SPARK TO REKINDLE ITS OUTPUT.'},
+  {title:'18: COBALT PROTOTYPE NOTES',text:'ARCHIVED SCHEMATICS DESCRIBE THE COBALT CORE: A HIGH-PRESSURE BLUE FLAME CAPABLE OF PIERCING MULTIPLE TARGETS IN A SINGLE LINE. ITS FUEL RESERVOIR WAS EXPANDED SPECIFICALLY FOR LONG EXPEDITIONS.'},
+  {title:'19: THE CRYO-VAULT',text:'BELOW THIS LANDING SITS THE DEEP FREEZE CHAMBER, WHERE THE COUNCIL STORED LIQUID NITROGEN TO CHILL THE LOWER REACTOR RING. THE TEMPERATURE DROPS SO LOW THAT EVEN SPARKS FREEZE MID-AIR.'},
+  {title:'20: MATRIARCH OF FROST',text:'THE CRYO-MATRIARCH COMMANDS THE AQUEDUCT VALVES, FREEZING INTRUDERS IN RINGS OF HAIL. SHATTERING HER COOLING COILS OPENS THE HEAVY AIRLOCK LEADING INTO THE HIGH-VOLTAGE POWER GRID.'},
+  {title:'21: THE VOLTAIC GRID',text:'BELOW THE WATERLINE LIES THE DYNAMO SECTOR, WHERE MASSIVE COPPER TURBINES ONCE CONVERTED GEOTHERMAL STEAM INTO ELECTRICITY FOR THE CITADEL ABOVE. STRAY ARCS OF LIGHTNING STILL LEAP BETWEEN EXPOSED BUSBARS.'},
+  {title:'22: STATIC BEETLES',text:'SCAVENGING SCARABS NEST IN THE TRANSFORMER COILS, CHARGING THEIR SHELLS WITH THOUSANDS OF VOLTS. WHEN THREATENED, THEY RELEASE BLINDING SHOCKWAVES THAT ELECTRIFY EVERY PUDDLE IN THE ROOM.'},
+  {title:'23: CONDUCTIVE WATERS',text:'WATER AND LIGHTNING FORM A DEADLY PARTNERSHIP IN THE FOUNDRY. A SINGLE ELECTRICAL DISCHARGE STRIKING A FLOODED TILE SENDS LETHAL CURRENT RACING THROUGH THE ENTIRE CONNECTED POOL.'},
+  {title:'24: WILDFIRE CORE LOGS',text:'ENGINEER NOTE: THE WILDFIRE CORE RUNS GREEN WITH COPPER-INFUSED PROMETHIUM. IT BURNS HOTTER AND FASTER THAN STANDARD AMBER, ALLOWING UNITS TO DASH ACROSS WIDE CHASMS FOR HALF THE FUEL.'},
+  {title:'25: THE VOLT SOVEREIGN',text:'FUSED DIRECTLY INTO THE MAIN SUBSTATION, THE VOLT SOVEREIGN DRAWS UNLIMITED POWER FROM THE REACTOR CABLES. DEFEATING IT CUTS THE AUXILIARY LOCKS GUARDING THE INNER CITADEL BARRACKS.'},
+  {title:'26: AUTOMATED TURRETS',text:'BRASS DEFENSE TURRETS BOLTED TO THE GRID TRACK MOVEMENT WITH INFRARED LENSES. THEY FIRE HIGH-VELOCITY PLASMA BOLTS DESIGNED TO PIERCE HEAVY ARMOR AT LONG RANGE.'},
+  {title:'27: THE COUNCIL SCHISM',text:'SECRET MINUTES REVEAL THE COUNCIL SPLIT IN TWO DURING THE FREEZE. HALF WANTED TO RESTART THE HEARTH; THE OTHER HALF BUILT THE INQUISITOR ORDER TO EXECUTE ANYONE WHO DARED DESCEND.'},
+  {title:'28: VOID-SHIELD KNIGHTS',text:'ARMORED IN POLISHED OBSIDIAN AND CARRYING REFLECTIVE AETHER SHIELDS, THE ROYAL KNIGHTS MARCH IN LOCKSTEP. STANDARD FIREBALLS BOUNCE HARMLESSLY OFF THEIR FRONTAL PLATES.'},
+  {title:'29: PIERCING THE AEGIS',text:'ONLY SUPERHEATED BLUE FLAME OR A FLANKING SHOT BEHIND THEIR GUARD CAN BREACH A ROYAL KNIGHT. MANY BRAVE UNITS LOST THEIR LIVES LEARNING THAT LESSON IN THESE NARROW HALLS.'},
+  {title:'30: THE GRAND INQUISITOR',text:'COMMANDER OF THE COUNCIL GUARD, THE GRAND INQUISITOR SWORE AN OATH TO KEEP THE SURFACE FROZEN FOREVER. HIS DEFEAT BREAKS THE SEAL ON THE SCORCHED OBSIDIAN KILNS BELOW.'},
+  {title:'31: SCORCHED OBSIDIAN KILNS',text:'NO WATER SURVIVES AT THIS DEPTH. THE HEAT RADIATING UPWARD FROM THE PRIME IGNITER HAS BAKED THE ROCK INTO BLACK GLASS, AND ASH DRIFTS LIKE SNOW ACROSS THE SMELTING FLOORS.'},
+  {title:'32: ASH AND BLOOD ALTARS',text:'DESPERATE EXPEDITION MEMBERS CARVED SHRINES FROM RAW OBSIDIAN. BY SACRIFICING PART OF THEIR MAXIMUM FUEL CAPACITY, THEY CHANNELED ANCIENT ALCHEMICAL BOONS DIRECTLY INTO THEIR CORES.'},
+  {title:'33: VOID PLASMA EXPERIMENTS',text:'THE FOURTH PROTOTYPE FLAME HARNESSED UNSTABLE VIOLET RADIATION. IT DOUBLES WEAPON DAMAGE INSTANTLY, THOUGH ITS VOLATILE CONTAINMENT FIELD SHRINKS THE FUEL TANK.'},
+  {title:'34: THE MAGMA CONDUITS',text:'RIVERS OF MOLTEN SLAG ONCE FLOWED THROUGH CHANNELS BENEATH THESE GRATES TO TEMPER THE GREAT GEAR-WHEELS OF THE CITADEL. EVEN COOLED, THE STONE RADIATES A SUFFOCATING ORANGE GLOW.'},
+  {title:'35: MAGMA BEHEMOTH',text:'BORN FROM LIVING SLAG AND BROKEN SMELTER PARTS, THE BEHEMOTH HURLS EXPLOSIVE OIL CASKS ACROSS THE ARENA, TURNING THE ENTIRE CHAMBER INTO A ROARING FIRESTORM.'},
+  {title:'36: UNIT-01 MEMORIAL',text:'AT THE CENTER OF THIS FLOOR LIES THE HELMET OF UNIT-01, THE FIRST COMMANDER OF THE CINDERGEAR. HE MADE IT THIRTY-SIX FLOORS DOWN BEFORE HIS PILOT LIGHT FINALLY GAVE WAY TO THE DARK.'},
+  {title:'37: THE AETHER PIPELINE',text:'GOLD-PLATED CONDUITS CARRY PURE THERMAL ENERGY STRAIGHT UPWARD PAST THESE WALLS, STOPPING JUST SHORT OF THE COUNCIL SEAL AT FLOOR ZERO. ONE TURN OF THE MASTER VALVE WILL RESTORE EVERYTHING.'},
+  {title:'38: SYMPHONY OF GEARS',text:'LISTEN CLOSELY TO THE WALLS: EVERY PISTON AND FLYWHEEL IN THE ABYSS BEATS IN TIME WITH THE PRIME IGNITER. THE ENTIRE MOUNTAIN IS ONE COLOSSAL ENGINE WAITING TO WAKE.'},
+  {title:'39: THE WEAVER SANCTUM',text:'BEYOND THIS ARCHWAY LIES THE CONTROL NEXUS WHERE AUTOMATED WEAVERS MAINTAIN THE REACTOR MAGNETIC RINGS. WITHOUT THEM, THE CORE WOULD TEAR ITSELF APART.'},
+  {title:'40: THE AETHER WEAVER',text:'WEAVING DRONES OUT OF RAW SPARKS AND MAGNETIC FILAMENTS, THE AETHER WEAVER GUARDS THE FINAL DESCENT SHAFT. DESTROYING ITS NEXUS OPENS THE WAY TO THE ROYAL REACTOR.'},
+  {title:'41: THE ROYAL AETHER CORE',text:'YOU HAVE REACHED THE DEEPEST SANCTUM OF THE WORLD. PURPLE AETHER CRYSTALS HUM WITH UNIMAGINABLE ENERGY, ILLUMINATING THE ANCIENT ARCHITECTURE OF THE FIRST BUILDERS.'},
+  {title:'42: THE SOLAR CROWN PROPHECY',text:'LEGEND SPOKE OF A FIFTH FLAME CORE FORGED FROM PURE STARLIGHT: THE SOLAR CROWN. ONLY A UNIT THAT CONQUERS ALL FIFTY FLOORS AND CLAIMS THE IGNITER MAY WEAR ITS RADIANCE.'},
+  {title:'43: ECHOES OF THE SURFACE',text:'THROUGH THE VENTILATION SHAFTS, THE HOWLING BLIZZARD OF THE SURFACE WORLD CAN STILL BE HEARD. MILLIONS HUDDLE AROUND DYING STOVES, PRAYING FOR A MIRACLE FROM BELOW.'},
+  {title:'44: PROTOCOL OMEGA',text:'SENSING AN INTRUDER NEAR THE CORE, THE CITADEL MAINFRAME ACTIVATED PROTOCOL OMEGA: EVERY REMAINING DEFENSE MECHANISM HAS BEEN DIVERTED TO STOP UNIT-09.'},
+  {title:'45: THE OMEGA SENTINEL',text:'BUILT AS THE FINAL FAILSAFE OF THE HIGH COUNCIL, THE OMEGA SENTINEL COMBINES VOLTAIC SHOCKS, HEAVY ARMOR, AND RAPID BARRAGES TO GUARD THE INNER THRESHOLD.'},
+  {title:'46: FOUR FLOORS REMAIN',text:'THE HEAT HERE IS SO INTENSE THAT YOUR EMBERS DANCE WITH GOLDEN LIGHT. THE PRIME IGNITER LIES DIRECTLY BENEATH YOUR FEET, PULSING LIKE A SECOND SUN.'},
+  {title:'47: THE FIRST SMITHS',text:'INSCRIBED BY THE FOUNDERS: WE BUILT THIS ENGINE NOT FOR KINGS, BUT FOR EVERY CHILD BORN UNDER THE WINTER SKY. MAY ITS FLAME NEVER BE HOARDED AGAIN.'},
+  {title:'48: CRITICAL MASS',text:'WARNING ALARMS ECHO THROUGH THE CHAMBER. THE PRIME IGNITER HAS BEEN THROTTLED FOR SO LONG THAT ITS CONTAINMENT LOCKS HAVE FUSED INTO A MONSTROUS GUARDIAN CONSTRUCT.'},
+  {title:'49: THE FINAL THRESHOLD',text:'CHECK YOUR FUEL, STEADY YOUR AIM, AND PREPARE YOUR DASH. BEYOND THIS STAIRCASE WAITS THE HEART OF THE WORLD AND THE FINAL BATTLE FOR THE SOLAR CROWN.'},
+  {title:'50: THE PRIME IGNITER',text:'BEHOLD THE ETERNAL HEARTH! SHATTER ITS CORRUPTED SHELL, CLAIM THE SOLAR CROWN, AND SEND A WAVE OF GOLDEN WARMTH SURGING BACK TO THAW THE FROZEN WORLD ABOVE!'}
 ];
+
 function unlockLore(idx){
   if(!SAVE.lore.includes(idx)){
     SAVE.lore.push(idx);SAVE.lore.sort((a,b)=>a-b);saveGame();
-    F.msg='LORE UNLOCKED: '+LORE_ENTRIES[idx].title;F.msgT=2.8;
     sfx('unlock');
   }else{
-    F.msg='TABLET READ: '+LORE_ENTRIES[idx].title;F.msgT=2.0;
     sfx('blip');
   }
+  lorePage=idx;
+  loreOpen=true;
+}
+
+// ================= CUTSCENES & 8-SECOND LOADING ENGINE =================
+let loadState={active:false,t:0,dur:8.0,nextMode:'title',label:'INITIALIZING CORE'};
+function clearInputEdge(){
+  for(const k in pressed)delete pressed[k];
+  mouse.lHit=false;mouse.rHit=false;
+}
+function startLoading(nextMode,label){
+  clearInputEdge();
+  loadState={active:true,t:0,dur:8.0,nextMode:nextMode||'title',label:label||'IGNITING FURNACE'};
+  state='loading';
+}
+
+const CUTSCENES={
+  intro:{
+    title:'PROLOGUE: THE LAST SPARK',
+    art:'awakening',
+    lines:[
+      'WINTER HAS RULED THE SURFACE FOR 300 YEARS.',
+      'THE COUNCIL SEALED THE GREAT HEARTH BELOW, LEAVING THE CITADEL TO FREEZE IN THE DARK.',
+      'DEEP IN FLOOR 01, UNIT-09 AWAKENS ALONE. DESCEND 50 FLOORS AND REKINDLE THE WORLD.'
+    ]
+  },
+  tier2:{
+    title:'ACT II: THE QUENCHED DEPTHS',
+    art:'aqueduct',
+    lines:[
+      'BEYOND THE CROWN WARDEN LIES THE FLOOD.',
+      'TO CHOKE THE CORE, THE COUNCIL SHATTERED THE GLACIER DAMS AND DROWNED THESE HALLS.',
+      'GUARD YOUR FLAME FROM THE FREEZING BRINE AND LEVIATHANS BELOW.'
+    ]
+  },
+  tier3:{
+    title:'ACT III: THE VOLTAIC GRID',
+    art:'voltaic',
+    lines:[
+      'BELOW THE ICE LIES THE DYNAMO FOUNDRY.',
+      'UNTAMED LIGHTNING ARCS ACROSS THE WATER, AND ROYAL KNIGHTS PATROL THE CORRIDORS.',
+      'TURN THEIR OWN SHOCKS AGAINST THEIR ARMORED LINES.'
+    ]
+  },
+  tier4:{
+    title:'ACT IV: SCORCHED OBSIDIAN',
+    art:'obsidian',
+    lines:[
+      'THE AIR BURNS LIKE A FORGE AT FLOOR 31. NO WATER SURVIVES THIS CLOSE TO THE CORE.',
+      'ASH AND BLOOD SHRINES LINE THE BLACK GLASS, OFFERING FORBIDDEN POWER TO THE DESPERATE.'
+    ]
+  },
+  tier5:{
+    title:'ACT V: THE AETHER SANCTUM',
+    art:'aether',
+    lines:[
+      'THE ROYAL REACTOR HUMS BEFORE YOU. TEN FLOORS SEPARATE YOU FROM THE PRIME IGNITER.',
+      'PROTOCOL OMEGA HAS LOCKED EVERY GATE. BURN THROUGH THEIR RANKS AND CLAIM THE SUN.'
+    ]
+  },
+  finale:{
+    title:'EPILOGUE: DAWN REKINDLED',
+    art:'victory',
+    lines:[
+      'THE PRIME IGNITER SHATTERS IN GOLDEN LIGHT!',
+      'A SURGE OF PURE WARMTH RACES UP THE SHAFT, MELTING CENTURIES OF ICE ACROSS THE SKY.',
+      'UNIT-09 STANDS CROWNED IN ETERNAL FLAME.'
+    ]
+  }
+};
+
+let CS={active:false,data:null,lineIdx:0,charIdx:0,charT:0,lockT:0,onDone:null};
+function playCutscene(key,onDone){
+  const data=CUTSCENES[key];
+  if(!data){if(onDone)onDone();return;}
+  clearInputEdge();
+  CS={active:true,data,lineIdx:0,charIdx:0,charT:0,lockT:0.25,onDone};
+  state='cutscene';
+  sfx('unlock');
 }
 
 // ================= SPRITE ENGINE =================
@@ -268,7 +352,7 @@ function buildSprites(){
 }
 buildSprites();
 
-// ================= BITMAP FONT (5x5) =================
+// ================= BITMAP FONT (5x5) & WORD WRAP =================
 const FONT={A:[14,17,31,17,17],B:[30,17,30,17,30],C:[15,16,16,16,15],D:[30,17,17,17,30],E:[31,16,30,16,31],F:[31,16,30,16,16],G:[15,16,19,17,15],H:[17,17,31,17,17],I:[31,4,4,4,31],J:[7,2,2,18,12],K:[17,18,28,18,17],L:[16,16,16,16,31],M:[17,27,21,17,17],N:[17,25,21,19,17],O:[14,17,17,17,14],P:[30,17,30,16,16],Q:[14,17,21,18,13],R:[30,17,30,18,17],S:[15,16,14,1,30],T:[31,4,4,4,4],U:[17,17,17,17,14],V:[17,17,17,10,4],W:[17,17,21,27,17],X:[17,10,4,10,17],Y:[17,10,4,4,4],Z:[31,2,4,8,31],
 '0':[14,19,21,25,14],'1':[4,12,4,4,14],'2':[30,1,14,16,31],'3':[30,1,6,1,30],'4':[18,18,31,2,2],'5':[31,16,30,1,30],'6':[14,16,30,17,14],'7':[31,1,2,4,4],'8':[14,17,14,17,14],'9':[14,17,15,1,14],
 ':':[0,4,0,4,0],'-':[0,0,14,0,0],'/':[1,2,4,8,16],'!':[4,4,4,0,4],'+':[0,4,14,4,0],'%':[25,26,4,11,19],'.':[0,0,0,0,4],',':[0,0,0,4,8],'?':[14,17,2,0,4],"'":[4,4,0,0,0],'>':[8,4,2,4,8],'<':[2,4,8,4,2],'[':[14,8,8,8,14],']':[14,2,2,2,14],'(':[2,4,4,4,2],')':[8,4,4,4,8],'&':[12,18,13,18,13],'=':[0,14,0,14,0],'~':[0,13,22,0,0],'_':[0,0,0,0,31]};
@@ -276,26 +360,60 @@ function drawText(s,x,y,c,sc=1){s=String(s).toUpperCase();ctx.fillStyle=PAL[c];l
 const textW=(s,sc=1)=>String(s).length*6*sc-sc;
 function drawTextS(s,x,y,c,sh,sc=1){drawText(s,x+sc,y+sc,sh,sc);drawText(s,x,y,c,sc);}
 function drawTextC(s,y,c,sc=1,sh=-1){const x=Math.round((W-textW(s,sc))/2);if(sh>=0)drawTextS(s,x,y,c,sh,sc);else drawText(s,x,y,c,sc);}
+function wrapText(str,maxChars){
+  const words=String(str).toUpperCase().split(' ');
+  const lines=[];let cur='';
+  for(const w of words){
+    if(!cur)cur=w;
+    else if(cur.length+1+w.length<=maxChars)cur+=' '+w;
+    else{lines.push(cur);cur=w;}
+  }
+  if(cur)lines.push(cur);
+  return lines;
+}
 function rect(x,y,w,h,c){ctx.fillStyle=PAL[c];ctx.fillRect(Math.round(x),Math.round(y),w,h);}
 function px(x,y,c){ctx.fillStyle=PAL[c];ctx.fillRect(Math.round(x),Math.round(y),1,1);}
 function circ(cx,cy,r,c){cx=Math.round(cx);cy=Math.round(cy);r=Math.round(r);ctx.fillStyle=PAL[c];let x=r,y=0,e=1-r;while(x>=y){for(const [a,b] of [[x,y],[y,x],[-x,y],[-y,x],[x,-y],[y,-x],[-x,-y],[-y,-x]])ctx.fillRect(cx+a,cy+b,1,1);y++;if(e<0)e+=2*y+1;else{x--;e+=2*(y-x)+1;}}}
 function line(x0,y0,x1,y1,c){const n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0))|0;ctx.fillStyle=PAL[c];for(let i=0;i<=n;i++){const t=n?i/n:0;ctx.fillRect(Math.round(x0+(x1-x0)*t),Math.round(y0+(y1-y0)*t),1,1);}}
 function blit(img,x,y,w,h){ctx.drawImage(img,Math.round(x),Math.round(y),w||img.width,h||img.height);}
 
-// ================= AUDIO (Web Audio, 4 channels) =================
-let AC=null,master,musicG,sfxG,noiseBuf,muted=false,nextNote=0,step=0;
+// ================= DYNAMIC CHIPTUNE SOUNDTRACK & SFX =================
+let AC=null,master,musicG,sfxG,delayNode,delayFb,delayWet,noiseBuf,muted=false,nextNote=0,step=0;
 function initAudio(){
   if(AC){if(AC.state==='suspended')AC.resume();return;}
   try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
   master=AC.createGain();master.gain.value=muted?0:0.55;master.connect(AC.destination);
-  musicG=AC.createGain();musicG.gain.value=0.75;musicG.connect(master);
-  sfxG=AC.createGain();sfxG.gain.value=0.75;sfxG.connect(master);
+  musicG=AC.createGain();musicG.gain.value=0.78;musicG.connect(master);
+  sfxG=AC.createGain();sfxG.gain.value=0.78;sfxG.connect(master);
+
+  delayNode=AC.createDelay(1.0);delayNode.delayTime.value=0.22;
+  delayFb=AC.createGain();delayFb.gain.value=0.34;
+  delayWet=AC.createGain();delayWet.gain.value=0.30;
+  delayNode.connect(delayFb);delayFb.connect(delayNode);
+  delayNode.connect(delayWet);delayWet.connect(musicG);
+
   noiseBuf=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
   nextNote=AC.currentTime+0.1;setInterval(sched,25);
 }
 function toggleMute(){muted=!muted;if(master)master.gain.setValueAtTime(muted?0:0.55,AC.currentTime);}
-function tone(type,f0,f1,dur,vol,t,dest){const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);if(f1!==f0)o.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g);g.connect(dest||sfxG);o.start(t);o.stop(t+dur+0.03);}
-function noise(t,dur,vol,ft,f0,f1,dest){const s=AC.createBufferSource();s.buffer=noiseBuf;s.loop=true;const f=AC.createBiquadFilter();f.type=ft;f.frequency.setValueAtTime(f0,t);if(f1&&f1!==f0)f.frequency.exponentialRampToValueAtTime(f1,t+dur);const g=AC.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);s.connect(f);f.connect(g);g.connect(dest||sfxG);s.start(t,Math.random()*0.5);s.stop(t+dur+0.03);}
+function tone(type,f0,f1,dur,vol,t,dest,sendDelay=false){
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.setValueAtTime(f0,t);
+  if(f1!==f0)o.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.linearRampToValueAtTime(vol,t+0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g);g.connect(dest||sfxG);
+  if(sendDelay&&delayNode)g.connect(delayNode);
+  o.start(t);o.stop(t+dur+0.03);
+}
+function noise(t,dur,vol,ft,f0,f1,dest){
+  const s=AC.createBufferSource();s.buffer=noiseBuf;s.loop=true;
+  const f=AC.createBiquadFilter();f.type=ft;f.frequency.setValueAtTime(f0,t);
+  if(f1&&f1!==f0)f.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  const g=AC.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  s.connect(f);f.connect(g);g.connect(dest||sfxG);s.start(t,Math.random()*0.5);s.stop(t+dur+0.03);
+}
 const lastS={};
 function sfx(n){
   if(!AC||muted)return;const t=AC.currentTime;if(lastS[n]!==undefined&&t-lastS[n]<0.04)return;lastS[n]=t;
@@ -326,32 +444,74 @@ function sfx(n){
     case'cheat':[523,659,784,1047,1319].forEach((f,k)=>tone('square',f,f*1.02,0.06,0.12,t+k*0.04));break;
   }
 }
+
 const mf=n=>440*Math.pow(2,(n-69)/12);
-const ROOTS=[45,41,43,40],CHORDS=[[57,60,64],[53,57,60],[55,59,62],[52,56,59]];
-const BASS=[1,0,0,1,0,0,1,0,1,0,0,1,0,1,0,0];
+const BIOME_TRACKS=[
+  {rootShift:0,bpm:124,leadWave:'square',chords:[[0,3,7],[-4,0,3],[-2,2,5],[-5,-1,2]],bassPat:[1,0,2,1,0,2,1,0,1,0,2,1,0,1,2,0],lead:[[12,0,0,7,10,0,12,0,15,0,14,12,10,0,7,0],[8,0,0,5,8,0,12,0,10,0,8,7,5,0,3,0],[10,0,0,7,10,0,14,0,12,0,10,8,7,0,5,0],[7,0,11,0,12,0,0,0,7,0,0,0,0,0,0,0]]},
+  {rootShift:5,bpm:116,leadWave:'triangle',chords:[[0,3,7],[-2,2,5],[-4,0,3],[-5,-1,2]],bassPat:[1,0,0,2,0,1,0,2,1,0,0,2,0,2,1,0],lead:[[12,0,14,15,0,14,12,0,10,0,12,14,0,12,10,0],[8,0,10,12,0,10,8,0,7,0,8,10,0,8,7,0],[10,0,12,14,0,15,14,0,12,0,10,8,0,7,5,0],[7,0,11,14,12,0,0,0,0,0,0,0,0,0,0,0]]},
+  {rootShift:7,bpm:134,leadWave:'sawtooth',chords:[[0,3,7],[3,7,10],[-2,2,5],[-5,-1,2]],bassPat:[1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2],lead:[[12,12,0,15,14,12,10,0,12,12,0,17,15,14,12,0],[15,15,0,19,17,15,14,0,12,12,0,15,14,12,10,0],[10,10,0,14,12,10,8,0,10,10,0,12,10,8,7,0],[11,0,14,0,16,0,19,0,24,0,0,0,0,0,0,0]]},
+  {rootShift:3,bpm:120,leadWave:'sawtooth',chords:[[0,3,7],[-4,0,3],[-5,-1,2],[0,3,7]],bassPat:[1,0,1,0,2,0,1,0,1,0,1,0,2,1,0,2],lead:[[12,0,0,0,13,0,12,0,10,0,8,0,7,0,0,0],[8,0,0,0,10,0,8,0,7,0,5,0,3,0,0,0],[7,0,11,0,14,0,11,0,12,0,15,0,14,0,12,0],[12,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0]]},
+  {rootShift:9,bpm:130,leadWave:'square',chords:[[0,3,7],[-2,2,5],[-4,0,3],[-5,-1,2]],bassPat:[1,0,2,1,2,0,1,2,1,0,2,1,2,1,2,0],lead:[[19,0,15,0,17,0,14,0,15,0,12,0,14,0,11,0],[17,0,14,0,15,0,12,0,14,0,10,0,12,0,8,0],[15,0,12,0,14,0,11,0,12,0,15,0,19,0,22,0],[24,0,0,0,19,0,0,0,24,0,0,0,0,0,0,0]]}
+];
+const BOSS_TRACK={rootShift:5,bpm:146,leadWave:'sawtooth',chords:[[0,1,7],[0,3,7],[1,5,8],[-2,1,5]],bassPat:[1,1,2,1,1,1,2,1,1,1,2,1,2,2,1,2],lead:[[12,13,12,7,12,13,15,13,12,13,12,7,8,7,5,3],[12,15,14,12,10,12,13,12,10,8,7,5,7,8,10,12],[13,17,15,13,12,13,15,17,19,17,15,13,12,10,8,7],[12,0,19,0,18,0,15,0,13,0,12,0,7,0,0,0]]};
+const TITLE_TRACK={rootShift:0,bpm:98,leadWave:'triangle',chords:[[0,3,7],[-4,0,3],[-2,2,5],[-5,-1,2]],bassPat:[1,0,0,0,2,0,0,0,1,0,0,0,2,0,0,0],lead:[[12,0,7,0,15,0,14,0,12,0,0,0,0,0,0,0],[8,0,5,0,12,0,10,0,8,0,0,0,0,0,0,0],[10,0,7,0,14,0,12,0,10,0,0,0,0,0,0,0],[11,0,7,0,14,0,16,0,12,0,0,0,0,0,0,0]]};
+const SHOP_TRACK={rootShift:3,bpm:112,leadWave:'square',chords:[[0,4,7],[5,9,12],[7,11,14],[0,4,7]],bassPat:[1,0,2,0,1,0,2,0,1,0,2,0,1,2,1,0],lead:[[12,0,16,14,12,0,9,0,7,0,9,12,14,0,0,0],[17,0,16,14,12,0,14,0,16,0,14,12,9,0,0,0],[14,0,16,17,19,0,17,16,14,0,12,11,12,0,14,0],[16,0,12,0,19,0,0,0,12,0,0,0,0,0,0,0]]};
+const WIN_TRACK={rootShift:3,bpm:128,leadWave:'square',chords:[[0,4,7],[-4,0,3],[-2,2,5],[0,4,7]],bassPat:[1,0,1,2,1,0,1,2,1,0,1,2,1,1,2,2],lead:[[12,0,12,12,16,0,19,0,24,0,23,21,19,0,0,0],[20,0,20,20,24,0,27,0,24,0,20,17,15,0,0,0],[22,0,22,22,26,0,29,0,26,0,22,19,17,0,0,0],[24,0,19,0,24,0,28,0,31,0,0,0,0,0,0,0]]};
+
+function getActiveTrack(){
+  if(state==='title'||state==='loading'||state==='cutscene')return TITLE_TRACK;
+  if(state==='shop')return SHOP_TRACK;
+  if(state==='win')return WIN_TRACK;
+  if(G&&G.floor%5===0&&state==='play')return BOSS_TRACK;
+  const bi=G?Math.min(4,Math.floor((G.floor-1)/10)):0;
+  return BIOME_TRACKS[bi];
+}
 function sched(){
   if(!AC||document.hidden)return;
-  const low=state==='play'&&G&&G.fuel/G.maxFuel<0.25;const bpm=low?150:118;const sd=60/bpm/4;
+  const tr=getActiveTrack();
+  const low=state==='play'&&G&&G.fuel/G.maxFuel<0.25;
+  const bpm=tr.bpm+(low?18:0);
+  const sd=60/bpm/4;
   if(nextNote<AC.currentTime-0.2)nextNote=AC.currentTime+0.05;
-  while(nextNote<AC.currentTime+0.12){playStep(step,nextNote,low);nextNote+=sd;step=(step+1)%64;}
+  while(nextNote<AC.currentTime+0.12){
+    playStep(step,nextNote,tr,low);
+    nextNote+=sd;
+    step=(step+1)%64;
+  }
 }
-const LEAD=[
-  [76,0,0,0,72,0,74,0,76,0,79,0,76,0,74,0],
-  [72,0,0,0,69,0,72,0,77,0,76,0,74,0,72,0],
-  [74,0,0,0,71,0,74,0,79,0,77,0,76,0,74,0],
-  [76,0,0,0,75,0,0,0,71,0,0,0,0,0,0,0]];
-const LEAD_LEN=[0.32,0,0,0,0.14,0,0.14,0,0.14,0,0.14,0,0.14,0,0.14,0];
-function playStep(s,t,low){
-  const bar=(s>>4)&3,st=s&15,ch=CHORDS[bar],phrase=(s>>5)&1;
-  if(BASS[st]){const n=ROOTS[bar]+(st===6||st===13?12:0)-12;tone('triangle',mf(n),mf(n),0.22,0.42,t,musicG);}
-  if(st%2===1){const n=ch[((st-1)/2)%3]+12;tone('square',mf(n),mf(n),0.06,low?0.05:0.035,t,musicG);}
-  const ln=LEAD[bar][st];
-  if(phrase&&ln){const d=bar===3&&st===8?0.6:LEAD_LEN[st]||0.14;tone('square',mf(ln),mf(ln),d,0.075,t,musicG);tone('square',mf(ln)*1.005,mf(ln)*1.005,d,0.03,t+0.012,musicG);}
-  if(!phrase&&st%8===0){const n=ch[2]+12;tone('triangle',mf(n),mf(n),0.4,0.12,t,musicG);}
-  if(st%4===2)noise(t,0.035,0.09,'highpass',7000,7000,musicG);
-  if(low&&st%2===1)noise(t,0.02,0.05,'highpass',9000,9000,musicG);
-  if(st===0||st===8||(low&&st===12))tone('triangle',160,40,0.14,0.45,t,musicG);
-  if(st===4||st===12)noise(t,0.1,0.14,'bandpass',1800,900,musicG);
+function playStep(s,t,tr,low){
+  const bar=(s>>4)&3,st=s&15;
+  const baseMidi=45+tr.rootShift;
+  const ch=tr.chords[bar];
+  const root=baseMidi+ch[0];
+  const bp=tr.bassPat[st];
+  if(bp>0){
+    const note=root+(bp===2?12:0)-12;
+    tone('triangle',mf(note),mf(note),0.20,0.44,t,musicG,false);
+  }
+  const arpIdx=(st+(bar%2))%3;
+  const arpNote=baseMidi+ch[arpIdx]+12;
+  if((state!=='title'&&state!=='loading'&&state!=='cutscene')||st%2===0){
+    tone('square',mf(arpNote),mf(arpNote),0.055,low?0.045:0.032,t,musicG,true);
+  }
+  const ln=tr.lead[bar][st];
+  if(ln){
+    let hold=1;
+    for(let k=st+1;k<16&&tr.lead[bar][k]===0;k++)hold++;
+    const dur=Math.min(0.55,hold*0.11);
+    const freq=mf(baseMidi+12+ln);
+    tone(tr.leadWave,freq,freq,dur,0.085,t,musicG,true);
+    tone('square',freq*1.004,freq*1.004,dur*0.9,0.032,t+0.008,musicG,false);
+  }
+  const calm=(state==='title'||state==='loading'||state==='cutscene');
+  if(!calm){
+    if(st===0||st===8||(tr===BOSS_TRACK&&(st===3||st===11))||(low&&st===12))tone('triangle',155,36,0.13,0.48,t,musicG,false);
+    if(st===4||st===12){noise(t,0.11,0.16,'bandpass',1900,850,musicG);tone('triangle',210,95,0.07,0.14,t,musicG,false);}
+    if(st%2===0)noise(t,0.025,st%4===2?0.085:0.035,'highpass',7500,7500,musicG);
+    if(bar===3&&st>=13){const tomF=190-(st-13)*32;tone('triangle',tomF,tomF*0.5,0.09,0.28,t,musicG,false);noise(t,0.06,0.10,'bandpass',1400,700,musicG);}
+  }else{
+    if(st%4===0)noise(t,0.018,0.035,'highpass',8500,8500,musicG);
+  }
 }
 
 // ================= INPUT, MOUSE AIMING & DROP-DOWN CONSOLE =================
@@ -364,7 +524,7 @@ const CON={
     {txt:'CINDERGEAR SYS CONSOLE',c:11},
     {txt:"TYPE 'HELP' FOR COMMANDS",c:6}
   ],
-  infFuel:false,god:false,clickBoom:false,rapid:false
+  infFuel:false,god:false,clickBoom:false,rapid:false,instakill:false,freeze:false,speedBoost:false
 };
 function conPrint(txt,c=7){
   CON.log.push({txt:String(txt),c});
@@ -414,10 +574,16 @@ function runConsoleCmd(raw){
   let ok=true,res='';
   switch(code){
     case'HELP':
-      conPrint('INF / GOD / RAPID / SMITE',12);
-      conPrint('GEMS999 / ALLUPG / NUKE',12);
-      conPrint('WARP / BOSS / FLR50 / CLEAR',12);
-      conPrint('FLAME <AMBER|COBALT|EMERALD|VOID|SOLAR>',12);
+      conPrint('INF / GOD / RAPID / SMITE / HEAL',12);
+      conPrint('INSTAKILL / FREEZE / SPEED / NUKE',12);
+      conPrint('WARP / BOSS / FLR50 / SETFLR <N>',12);
+      conPrint('TYPE HELP2 FOR MORE COMMANDS',10);
+      CON.buf='';sfx('blip');return;
+    case'HELP2':
+      conPrint('GEMS999 / ALLUPG / GIVEUPG <ID>',12);
+      conPrint('SUMMON <CLOCK|DRONE|BEETLE|KNIGHT|BOSS>',12);
+      conPrint('SPAWNBARREL / SPAWNSHRINE / KEY',12);
+      conPrint('CHECKPOINT / UNLOCKALL / FLAME <ID>',12);
       CON.buf='';sfx('blip');return;
     case'CLEAR':case'CLS':
       CON.log=[];CON.buf='';sfx('blip');return;
@@ -434,6 +600,18 @@ function runConsoleCmd(raw){
     case'RAPIDFIRE':case'RAPID':
       CON.rapid=!CON.rapid;
       res='RAPID_FIRE = '+(CON.rapid?'1':'0');break;
+    case'INSTAKILL':case'OHKO':
+      CON.instakill=!CON.instakill;
+      res='INSTAKILL = '+(CON.instakill?'1':'0');break;
+    case'FREEZE':
+      CON.freeze=!CON.freeze;
+      res='ENEMY_FREEZE = '+(CON.freeze?'1':'0');break;
+    case'SPEED':
+      CON.speedBoost=!CON.speedBoost;
+      res='TURBO_SPEED = '+(CON.speedBoost?'1':'0');break;
+    case'HEAL':case'REFILL':
+      if(G){G.fuel=G.maxFuel;if(P){P.dead=false;P.inv=1.5;}}
+      res='FUEL RESTORED TO 100%';break;
     case'GEMS999':case'GEMS':
       if(G)G.gems+=999;SAVE.bank+=999;saveGame();
       res='ADDED +999 GEMS & SHARDS';break;
@@ -443,12 +621,25 @@ function runConsoleCmd(raw){
         G.fuel=G.maxFuel;
       }
       res='INSTALLED ALL 14 UPGRADES';break;
+    case'GIVEUPG':
+      if(G&&UPG.some(u=>u.id===arg)){
+        applyUpg(arg);res='INSTALLED '+arg.toUpperCase();
+      }else{ok=false;res='IDS: CORE,BLUE,TRAIL,SIPHON,SPLIT,ARC...';}
+      break;
     case'OPENEXIT':case'KEY':
       if(F){F.keyHeld=true;F.exitOpen=true;}
       res='EXIT_OPEN = 1';break;
     case'NEXTFLOOR':case'WARP':
       if(G&&state==='play'){G.floor=Math.min(50,G.floor+1);loadFloor();}
       res='WARPED -> FLR '+(G?pad2(G.floor):'01');break;
+    case'SETFLR':case'FLOOR':
+      const flrN=parseInt(arg,10);
+      if(flrN>=1&&flrN<=50){
+        if(!G)newRun(true,1);
+        G.floor=flrN;loadFloor();state='play';
+        res='SET FLOOR -> '+pad2(flrN);
+      }else{ok=false;res='USAGE: SETFLR <1-50>';}
+      break;
     case'BOSSWARP':case'BOSS':
       if(G&&state==='play'){
         const nb=Math.min(50,Math.ceil(G.floor/5)*5+(G.floor%5===0?5:0));
@@ -456,20 +647,48 @@ function runConsoleCmd(raw){
       }
       res='WARPED -> BOSS FLR '+(G?pad2(G.floor):'05');break;
     case'FINALBOSS':case'FLR50':
-      if(!G)newRun();
+      if(!G)newRun(true,1);
       G.floor=50;for(const u of UPG){if(u.id==='core'){G.upg.core+=2;G.maxFuel+=50;}else G.upg[u.id]=true;}
       G.fuel=G.maxFuel;loadFloor();state='play';
       res='WARPED -> FLR 50';break;
+    case'CHECKPOINT':case'CP':
+      if(G){unlockCheckpoint(G.floor);res='SAVED CHECKPOINT FLR '+pad2(G.floor);}
+      else{for(let f=1;f<=46;f+=5)unlockCheckpoint(f);res='UNLOCKED ALL 5-FLR CHECKPOINTS';}
+      break;
+    case'SUMMON':
+      if(F&&P&&['clock','drone','beetle','turret','knight','boss'].includes(arg)){
+        const sx=clamp(Math.floor(P.x/16)+(P.fx||1)*2,2,13),sy=clamp(Math.floor(P.y/16),2,9);
+        F.enemies.push(mkEnemy(arg,sx,sy,G?G.floor:5));
+        res='SPAWNED '+arg.toUpperCase();
+      }else{ok=false;res='TYPES: CLOCK,DRONE,BEETLE,TURRET,KNIGHT,BOSS';}
+      break;
+    case'SPAWNBARREL':
+      if(F&&P){
+        const bx=clamp(Math.floor(P.x/16)+(P.fx||1),1,14),by=clamp(Math.floor(P.y/16),1,10);
+        F.map[by*GW+bx]=T.BARREL;res='SPAWNED OIL BARREL';
+      }else{ok=false;res='NOT IN DUNGEON';}
+      break;
+    case'SPAWNSHRINE':
+      if(F&&P){
+        const sx=clamp(Math.floor(P.x/16)+(P.fx||1),1,14),sy=clamp(Math.floor(P.y/16),1,10);
+        F.map[sy*GW+sx]=T.SHRINE;res='SPAWNED BLOOD SHRINE';
+      }else{ok=false;res='NOT IN DUNGEON';}
+      break;
+    case'CLEARITEMS':
+      if(F)F.items=F.items.filter(i=>i.type==='key');
+      res='CLEARED LOOSE DROPS';break;
     case'NUKE':
       if(F){
         shake=8;sfx('boom');
-        for(const e of F.enemies)if(e.hp>0)damageEnemy(e,999);
+        for(const e of F.enemies)if(e.hp>0)damageEnemy(e,9999);
         for(let i=0;i<N;i++)if(F.map[i]===T.BARREL)explode(i%GW,i/GW|0);
       }
       res='ROOM CLEARED';break;
     case'UNLOCKALL':
-      SAVE.unlocked=FLAMES.map(f=>f.id);SAVE.bestFloor=50;SAVE.lore=[0,1,2,3,4,5,6,7,8,9];saveGame();
-      res='UNLOCKED ALL CORES & LORE';break;
+      SAVE.unlocked=FLAMES.map(f=>f.id);SAVE.bestFloor=50;SAVE.lore=Array.from({length:50},(_,i)=>i);
+      for(let f=1;f<=46;f+=5)SAVE.checkpoints.push(f);
+      saveGame();
+      res='UNLOCKED CORES, LORE & CHECKPOINTS';break;
     case'FLAME':
       const found=FLAMES.find(f=>f.id===arg||f.name.startsWith(arg.toUpperCase()));
       if(found){
@@ -521,7 +740,7 @@ const OPAQUE=new Uint8Array(22);[T.WALL,T.CRACK,T.VINE,T.CRATE,T.BARREL,T.ICE,T.
 const isFlam=t=>t===T.VINE||t===T.CRATE||t===T.VWALL;
 
 // ================= GLOBAL STATE =================
-let state='title',time=0,frame=0,G=null,F=null,P=null,S=null;
+let state='loading',time=0,frame=0,G=null,F=null,P=null,S=null;
 let parts=[],texts=[],shake=0,hitstop=0,clearT=0,deathT=0;
 
 function tAt(cx,cy){if(cx<0||cy<0||cx>=GW||cy>=GH)return T.WALL;return F.map[cy*GW+cx];}
@@ -551,15 +770,15 @@ function addText(s,x,y,c){texts.push({s:String(s),x,y,c,t:0.95});}
 // ================= FLOOR & ENEMY GENERATION (50 FLOORS) =================
 function mkEnemy(type,cx,cy,n){
   const scale=1+Math.floor((n-1)/10)*0.35;
-  const e={type,x:cx*16+8,y:cy*16+8,hw:5,hh:5,hp:3,flash:0,kx:0,ky:0,state:'patrol',t:0,anim:R()*2,dir:{x:1,y:0},face:1,burnT:0,burnCd:0,bob:0};
+  const e={type,x:cx*16+8,y:cy*16+8,hw:5,hh:5,hp:3,flash:0,kx:0,ky:0,state:'patrol',t:0,anim:R()*2,dir:{x:1,y:0},face:1,burnT:0,burnCd:0,bob:0,spin:0};
   if(type==='clock'){e.hp=Math.round((3+Math.floor(n/4))*scale);const h=R()<.5;e.dir=h?{x:1,y:0}:{x:0,y:1};if(R()<.5){e.dir.x*=-1;e.dir.y*=-1;}e.t=2+R()*2;}
   if(type==='drone'){e.hp=Math.round((2+Math.floor(n/5))*scale);e.fireT=1+R()*2;e.state='hover';e.wx=0;e.wy=0;e.wt=0;}
   if(type==='beetle'){e.hp=Math.round((2+Math.floor(n/5))*scale);e.moveT=0;e.zapT=2+R()*2;e.state='skitter';e.mdx=0;e.mdy=0;}
   if(type==='turret'){e.hp=Math.round((3+Math.floor(n/4))*scale);e.fireT=1.4+R()*1.2;e.state='idle';}
   if(type==='knight'){e.hp=Math.round((4+Math.floor(n/3))*scale);e.dir={x:R()<.5?1:-1,y:0};e.face=e.dir.x;e.t=1.5+R();}
   if(type==='boss'){
-    const bd=BOSS_DATA[n]||{name:'IRON WARDEN',hp:15+n*3,type:'warden'};
-    e.hp=bd.hp;e.maxhp=e.hp;e.hw=7;e.hh=7;e.state='chase';e.t=1.8;e.boss=true;e.bossType=bd.type;e.bossName=bd.name;e.bossFloor=n;
+    const bd=BOSS_DATA[n]||{name:'IRON WARDEN',hp:35+n*5,type:'warden'};
+    e.hp=bd.hp;e.maxhp=e.hp;e.hw=7;e.hh=7;e.state='chase';e.t=1.1;e.boss=true;e.bossType=bd.type;e.bossName=bd.name;e.bossFloor=n;e.atkCycle=0;
   }
   return e;
 }
@@ -567,7 +786,7 @@ function mkEnemy(type,cx,cy,n){
 function genFloor(n){
   const m=new Uint8Array(N),prot=new Uint8Array(N);
   const f={map:m,burn:new Float32Array(N),bAge:new Float32Array(N),spread:new Uint8Array(N),heat:new Float32Array(N),iceHot:new Float32Array(N),fuse:new Float32Array(N),steamT:new Float32Array(N),fv:new Uint8Array(N),torch:new Uint8Array(N),
-    enemies:[],items:[],projs:[],trails:[],arcs:[],flashes:[],keyHeld:false,exitOpen:false,msg:'',msgT:0,spawn:null,tabletLore:(n-1)%LORE_ENTRIES.length};
+    enemies:[],items:[],projs:[],trails:[],arcs:[],flashes:[],keyHeld:false,exitOpen:false,msg:'',msgT:0,spawn:null,tabletLore:(n-1)%STORY_CHRONICLES.length};
   const id=(x,y)=>y*GW+x,inner=(x,y)=>x>=1&&x<=14&&y>=1&&y<=10;
   for(let i=0;i<N;i++){const x=i%GW,y=i/GW|0;m[i]=(x===0||y===0||x===15||y===11)?T.WALL:T.FLOOR;f.fv[i]=ri(0,2);}
   const boss=(n%5===0);
@@ -656,12 +875,16 @@ function genFloor(n){
 
   const specialSpots=[];
   for(let y=2;y<=9;y++)for(let x=2;x<=13;x++){
-    const j=id(x,y);if(m[j]===T.FLOOR&&!prot[j]&&adjPath(x,y)&&Math.hypot(x-sp.x,y-sp.y)>3)specialSpots.push([x,y]);
+    const j=id(x,y);if(m[j]===T.FLOOR&&!prot[j]&&adjPath(x,y)&&Math.hypot(x-sp.x,y-sp.y)>2.2)specialSpots.push([x,y]);
   }
   shuffle(specialSpots);
   if(specialSpots.length>0){
     const [tx,ty]=specialSpots.pop();
     m[id(tx,ty)]=T.TABLET;prot[id(tx,ty)]=3;
+  }else{
+    for(let y=2;y<=9;y++)for(let x=2;x<=13;x++){
+      const j=id(x,y);if(m[j]===T.FLOOR&&!(x===sp.x&&y===sp.y)&&!(x===ex.x&&y===ex.y)){m[j]=T.TABLET;prot[id(x,y)]=3;x=99;break;}
+    }
   }
   if(specialSpots.length>0&&n>=3&&R()<0.55){
     const [sx2,sy2]=specialSpots.pop();
@@ -697,14 +920,25 @@ function genFloor(n){
 }
 
 // ================= RUN / FLOOR LIFECYCLE =================
-function newRun(){
+function newRun(skipIntro=false,startFlr=1){
   if(!SAVE.unlocked.includes(SAVE.selected))SAVE.selected='amber';
   const fl=getFlame();
-  const baseFuel=Math.max(40,100+fl.fuelMod);
-  G={floor:1,maxFuel:baseFuel,fuel:baseFuel,gems:0,phoenixUsed:false,dynamoCharge:0,
-    upg:{core:0,blue:false,trail:false,siphon:false,magnet:false,veil:false,split:false,arc:false,phoenix:false,pierce:fl.pierce,cryo:false,alchemy:false,dynamo:false,greed:false},
+  const tierBonus=Math.floor((startFlr-1)/5);
+  const baseFuel=Math.max(40,100+fl.fuelMod+tierBonus*15);
+  G={floor:startFlr,maxFuel:baseFuel,fuel:baseFuel,gems:tierBonus*4,phoenixUsed:false,dynamoCharge:0,
+    upg:{core:tierBonus,blue:startFlr>=11,trail:startFlr>=16,siphon:startFlr>=6,magnet:startFlr>=6,veil:false,split:startFlr>=26,arc:startFlr>=21,phoenix:false,pierce:fl.pierce,cryo:startFlr>=31,alchemy:false,dynamo:false,greed:false},
     stats:{kills:0,barrels:0,gems:0}};
-  loadFloor();state='play';
+  loadFloor();
+  clearInputEdge();
+  if(skipIntro){
+    state='play';
+  }else if(startFlr===1){
+    playCutscene('intro',()=>{clearInputEdge();state='play';});
+  }else{
+    const csKey=startFlr===11?'tier2':startFlr===21?'tier3':startFlr===31?'tier4':startFlr===41?'tier5':null;
+    if(csKey)playCutscene(csKey,()=>{clearInputEdge();state='play';});
+    else state='play';
+  }
 }
 function loadFloor(){
   if(G.floor>SAVE.bestFloor){SAVE.bestFloor=G.floor;saveGame();}
@@ -732,7 +966,9 @@ function killPlayer(){
   G.fuel=0;P.dead=true;deathT=1.6;hitstop=4;shake=7;sfx('boom');sparks(P.x,P.y,40,[8,9,10,7],120);smoke(P.x,P.y,16);
 }
 function damageEnemy(e,d){
-  if(e.hp<=0)return;e.hp-=d;e.flash=0.12;addText(String(d),e.x,e.y-10,10);sfx('hit');
+  if(e.hp<=0)return;
+  const dmg=CON.instakill?9999:d;
+  e.hp-=dmg;e.flash=0.12;addText(String(dmg),e.x,e.y-10,10);sfx('hit');
   if(e.hp<=0)killEnemy(e);
 }
 function killEnemy(e){
@@ -750,7 +986,9 @@ function killEnemy(e){
     pop('ember');pop('ember');
     const gCount=G.upg.greed?12:6;
     for(let i=0;i<gCount;i++)pop('gem');
-    SAVE.bank+=5+Math.floor(G.floor/5)*2;saveGame();
+    SAVE.bank+=5+Math.floor(G.floor/5)*2;
+    if(G.floor<50)unlockCheckpoint(G.floor+1);
+    saveGame();
   }else{
     if(R()<0.5)pop('ember');
     const g=(ri(1,3))*(G.upg.greed?2:1);
@@ -758,7 +996,14 @@ function killEnemy(e){
   }
   if(G.upg.siphon)gainFuel(20,e.x,e.y);
 }
-function floorClear(){if(state!=='play')return;sfx('stairs');SAVE.bank+=2;saveGame();state='clear';clearT=1.4;}
+function floorClear(){
+  if(state!=='play')return;
+  sfx('stairs');
+  SAVE.bank+=2;
+  if(G.floor%5===0&&G.floor<50)unlockCheckpoint(G.floor+1);
+  saveGame();
+  state='clear';clearT=1.4;
+}
 
 // ================= 14 TINKER SHOP UPGRADES =================
 const UPG=[
@@ -915,7 +1160,7 @@ function updatePlayer(dt){
     }else{sfx('deny');addText('LOW FUEL',p.x,p.y-12,8);p.dashCd=0.35;}
   }
 
-  const spd=62*fl.spdMod*(p.boost>0?1.25:1);let vx,vy;
+  const spd=62*fl.spdMod*(p.boost>0?1.25:1)*(CON.speedBoost?1.75:1);let vx,vy;
   if(p.dashT>0){
     p.dashT-=dt;vx=p.ddx*250;vy=p.ddy*250;
     for(let k=0;k<3;k++)part(p.x+(R()-.5)*8,p.y+(R()-.5)*8,-p.ddx*30+(R()-.5)*20,-p.ddy*30+(R()-.5)*20,[8,9,10][k],0.3,0);
@@ -951,11 +1196,12 @@ function updatePlayer(dt){
   if(G.fuel<=0)killPlayer();
 }
 
-// ================= ENEMIES & 10 MULTI-PHASE BOSSES =================
+// ================= ENEMIES & OVERHAULED MULTI-PHASE BOSSES =================
 function updateEnemies(dt){
   for(const e of F.enemies){
     if(e.hp<=0)continue;
     e.anim+=dt;e.flash-=dt;e.burnCd-=dt;
+    if(CON.freeze)continue;
     if(Math.abs(e.kx)+Math.abs(e.ky)>2){moveE(e,e.kx*dt,e.ky*dt);const f=Math.pow(0.002,dt);e.kx*=f;e.ky*=f;}
     const dx=P.x-e.x,dy=P.y-e.y,dist=Math.hypot(dx,dy)||1;
     const sees=canSee(e);
@@ -989,39 +1235,75 @@ function updateEnemies(dt){
       if(sees){moveE(e,dx/dist*28*dt,dy/dist*28*dt);e.face=dx<0?-1:1;}
       else{if(moveE(e,e.dir.x*20*dt,e.dir.y*20*dt)){e.dir.x*=-1;e.face=e.dir.x;}}
     }else if(e.type==='boss'){
-      e.t-=dt;const rage=e.hp<e.maxhp*0.5?1.38:1;
+      e.t-=dt;
+      const enraged=e.hp<e.maxhp*0.5;
+      const rage=enraged?1.45:1.0;
+      const projK=(e.bossType==='leviathan'||e.bossType==='cryo')?'drop':'bolt';
+
       if(e.state==='chase'){
-        if(dist>16)moveE(e,dx/dist*24*rage*dt,dy/dist*24*rage*dt);
+        if(dist>18)moveE(e,dx/dist*34*rage*dt,dy/dist*34*rage*dt);
         e.face=dx<0?-1:1;
-        if(e.t<=0){e.state=R()<.5?'windC':'windV';e.t=0.65;sfx('alert');}
+        if(e.t<=0){
+          e.atkCycle=(e.atkCycle+1)%3;
+          if(e.atkCycle===0){e.state='windSpread';e.t=0.45;sfx('alert');}
+          else if(e.atkCycle===1){e.state='windC';e.t=0.50;sfx('alert');}
+          else{e.state='windV';e.t=0.55;sfx('charge');}
+        }
+      }else if(e.state==='windSpread'){
+        // Aimed 5-way or 7-way fan barrage
+        if(e.t<=0){
+          const baseAng=Math.atan2(dy,dx);
+          const count=enraged?7:5;
+          const stepAng=0.22;
+          for(let k=0;k<count;k++){
+            const a=baseAng+(k-(count-1)/2)*stepAng;
+            F.projs.push({k:projK,x:e.x,y:e.y,vx:Math.cos(a)*112*rage,vy:Math.sin(a)*112*rage,life:3.2});
+          }
+          sfx('shoot');
+          e.state='chase';e.t=(1.05+R()*0.3)/rage;
+        }
       }else if(e.state==='windC'){
-        if(e.t<=0){e.state='charge';e.t=0.55;e.cdx=dx/dist;e.cdy=dy/dist;sfx('lunge');}
+        if(e.t<=0){
+          e.state='charge';e.t=0.52;
+          e.cdx=dx/dist;e.cdy=dy/dist;
+          sfx('lunge');
+        }
       }else if(e.state==='charge'){
-        const r=moveE(e,e.cdx*155*rage*dt,e.cdy*155*rage*dt);
-        if(r||e.t<=0){if(r){shake=Math.max(shake,4);sparks(e.x+e.cdx*10,e.y+e.cdy*10,10,[6,7,9]);}e.state='chase';e.t=(1.5+R())/rage;}
+        const r=moveE(e,e.cdx*195*rage*dt,e.cdy*195*rage*dt);
+        if(R()<0.5)part(e.x,e.y,-e.cdx*40,-e.cdy*40,10,0.25,0);
+        if(r||e.t<=0){
+          shake=Math.max(shake,5);
+          sparks(e.x,e.y,14,[8,9,10,7],100);
+          // Slam shockwave ring
+          const ringN=enraged?10:6;
+          for(let k=0;k<ringN;k++){
+            const a=(k/ringN)*Math.PI*2;
+            F.projs.push({k:projK,x:e.x,y:e.y,vx:Math.cos(a)*85,vy:Math.sin(a)*85,life:2.6});
+          }
+          if(e.bossType==='volt'||e.bossType==='omega'||e.bossType==='prime')discharge(e,true);
+          e.state='chase';e.t=(1.15+R()*0.3)/rage;
+        }
       }else if(e.state==='windV'){
         if(e.t<=0){
-          const nBolts=Math.min(16,8+Math.floor(G.floor/5)*2);
-          const off=R()*Math.PI;
-          const projK=(e.bossType==='leviathan'||e.bossType==='cryo')?'drop':'bolt';
+          e.spin+=0.45;
+          const nBolts=Math.min(18,10+Math.floor(G.floor/5)*2);
           for(let k=0;k<nBolts;k++){
-            const a=off+k/nBolts*Math.PI*2;
-            F.projs.push({k:projK,x:e.x,y:e.y,vx:Math.cos(a)*75,vy:Math.sin(a)*75,life:3.2});
+            const a=e.spin+k/nBolts*Math.PI*2;
+            F.projs.push({k:projK,x:e.x,y:e.y,vx:Math.cos(a)*88*rage,vy:Math.sin(a)*88*rage,life:3.4});
           }
-          if(e.bossType==='volt'||e.bossType==='prime')discharge(e,true);
-          if((e.bossType==='magma'||e.bossType==='prime')&&R()<0.6){
+          if((e.bossType==='magma'||e.bossType==='prime')&&R()<0.75){
             const bx=clamp(Math.floor(e.x/16)+(R()<.5?-2:2),2,13),by=clamp(Math.floor(e.y/16),2,9);
             if(F.map[by*GW+bx]===T.FLOOR)F.map[by*GW+bx]=T.BARREL;
           }
-          if((e.bossType==='weaver'||e.bossType==='prime')&&F.enemies.length<4){
-            F.enemies.push(mkEnemy('drone',clamp(Math.floor(e.x/16),2,13),clamp(Math.floor(e.y/16),2,9),G.floor));
+          if((e.bossType==='weaver'||e.bossType==='inquisitor'||e.bossType==='prime')&&F.enemies.length<5){
+            const minion=e.bossType==='inquisitor'?'knight':'drone';
+            F.enemies.push(mkEnemy(minion,clamp(Math.floor(e.x/16),2,13),clamp(Math.floor(e.y/16),2,9),G.floor));
           }
-          F.projs.push({k:'bolt',x:e.x,y:e.y,vx:dx/dist*100,vy:dy/dist*100,life:3});
-          sfx('volley');e.state='chase';e.t=(1.7+R())/rage;
+          sfx('volley');e.state='chase';e.t=(1.25+R()*0.3)/rage;
         }
       }
     }
-    if(!P.dead&&dist<(e.boss?16:10))hurtPlayer(20,e.x,e.y);
+    if(!P.dead&&dist<(e.boss?16:10))hurtPlayer(e.boss?25:20,e.x,e.y);
     if(e.burnCd<=0)for(const tr of F.trails)if(Math.hypot(tr.x-e.x,tr.y-e.y)<10){damageEnemy(e,1);e.burnCd=0.5;break;}
   }
   F.enemies=F.enemies.filter(e=>e.hp>0);
@@ -1069,7 +1351,7 @@ function updateProjs(dt){
       }else if(pr.k==='drop'){
         if(t!==T.GRATE&&t!==T.WATER&&t!==T.STEAM&&isSolid(t,'e')||t===T.EXIT){if(F.burn[i]>0){extinguish(i);steamBurst(cx*16+8,cy*16+8,10);sfx('sizzle');}else drips(pr.x,pr.y,4);pr.dead=1;break;}
         for(const tr of F.trails)if(tr.t>0&&Math.hypot(tr.x-pr.x,tr.y-pr.y)<7){tr.t=0;steamBurst(tr.x,tr.y,4);}
-        if(!P.dead&&Math.hypot(P.x-pr.x,P.y-pr.y)<7){pr.dead=1;drips(pr.x,pr.y,6);if(P.inv<=0&&!CON.god){G.fuel-=10;P.inv=0.6;P.hurtT=0.6;sfx('sizzle');addText('-10',P.x,P.y-10,12);shake=Math.max(shake,2);steamBurst(P.x,P.y,6);if(G.fuel<=0)killPlayer();}break;}
+        if(!P.dead&&Math.hypot(P.x-pr.x,P.y-pr.y)<7){pr.dead=1;drips(pr.x,pr.y,6);if(P.inv<=0&&!CON.god){G.fuel-=12;P.inv=0.6;P.hurtT=0.6;sfx('sizzle');addText('-12',P.x,P.y-10,12);shake=Math.max(shake,2);steamBurst(P.x,P.y,6);if(G.fuel<=0)killPlayer();}break;}
       }else{
         if(isSolid(t,'e')&&t!==T.GRATE||t===T.EXIT){sparks(pr.x,pr.y,4,[2,14,7]);pr.dead=1;break;}
         if(!P.dead&&Math.hypot(P.x-pr.x,P.y-pr.y)<7){pr.dead=1;hurtPlayer(20,pr.x,pr.y);break;}
@@ -1115,13 +1397,24 @@ function updatePlay(dt){
   updateFx(dt);
   if(P.dead){deathT-=dt;if(deathT<=0){state='over';}}
 }
+function proceedAfterShop(){
+  G.floor++;
+  loadFloor();
+  clearInputEdge();
+  const csKey=G.floor===11?'tier2':G.floor===21?'tier3':G.floor===31?'tier4':G.floor===41?'tier5':null;
+  if(csKey){
+    playCutscene(csKey,()=>{clearInputEdge();state='play';sfx('stairs');});
+  }else{
+    state='play';sfx('stairs');
+  }
+}
 function updateShop(){
   const n=S.offers.length+1;
   if(S.msgT>0)S.msgT-=1/60;if(S.flash>0)S.flash-=1/60;
   if(hit('KeyW','ArrowUp')){S.sel=(S.sel+n-1)%n;sfx('blip');}
   if(hit('KeyS','ArrowDown')){S.sel=(S.sel+1)%n;sfx('blip');}
   if(hit('Enter','NumpadEnter','KeyJ','KeyZ','Space')){
-    if(S.sel===S.offers.length){G.floor++;loadFloor();state='play';sfx('stairs');}
+    if(S.sel===S.offers.length){proceedAfterShop();}
     else{const o=S.offers[S.sel];if(o.sold){sfx('deny');S.msg='ALREADY BOUGHT';S.msgT=1.2;}
       else if(G.gems>=o.cost){G.gems-=o.cost;o.sold=true;applyUpg(o.id);sfx('unlock');S.flash=0.3;S.msg=o.name+' INSTALLED';S.msgT=1.4;}
       else{sfx('deny');S.msg='NOT ENOUGH GEMS';S.msgT=1.2;}}}
@@ -1136,22 +1429,97 @@ function cycleFlame(dir){
   }
   sfx('blip');
 }
+function cycleCheckpoint(dir){
+  const cps=SAVE.checkpoints;
+  if(cps.length<=1)return;
+  const idx=Math.max(0,cps.indexOf(selectedCheckpoint));
+  selectedCheckpoint=cps[(idx+dir+cps.length)%cps.length];
+  sfx('blip');
+}
 function update(dt){
   time+=dt;frame++;
   if(CON.open)return;
   if(hit('KeyM'))toggleMute();
-  if(hit('KeyL')){loreOpen=!loreOpen;sfx('blip');}
+
+  // 8-Second Loading Animation State
+  if(state==='loading'){
+    loadState.t+=dt;
+    if(R()<0.65){
+      const px0=30+(loadState.t/loadState.dur)*196;
+      part(px0,148,(R()-.5)*25,-25-R()*35,[8,9,10,7][ri(0,3)],0.45+R()*0.3,20);
+    }
+    updateFx(dt);
+    if(loadState.t>=loadState.dur||hit('Space','Enter','NumpadEnter')){
+      loadState.active=false;
+      clearInputEdge();
+      if(loadState.nextMode==='newrun'){newRun(false,selectedCheckpoint);}
+      else{state='title';sfx('unlock');}
+    }
+    return;
+  }
+
+  // Interactive Story Cutscenes (Glitch-free edge lock & rich particles)
+  if(state==='cutscene'&&CS.active){
+    if(CS.lockT>0)CS.lockT-=dt;
+    const curLine=CS.data.lines[CS.lineIdx]||'';
+    if(CS.charIdx<curLine.length){
+      CS.charT+=dt;
+      while(CS.charT>=0.022&&CS.charIdx<curLine.length){
+        CS.charT-=0.022;
+        CS.charIdx++;
+        if(CS.charIdx%5===0)sfx('blip');
+      }
+    }
+    // Scene-specific animated ambient particles
+    const art=CS.data.art;
+    if(art==='awakening'&&R()<0.55)part(116+R()*24,68,(R()-.5)*18,-22-R()*32,[8,9,10][ri(0,2)],0.7,0);
+    else if(art==='aqueduct'&&R()<0.5)part(30+R()*196,98,(R()-.5)*10,-16-R()*24,[12,7,6][ri(0,2)],0.8,-5);
+    else if(art==='voltaic'&&R()<0.65)part(36+R()*184,46+R()*48,(R()-.5)*60,(R()-.5)*60,[10,7,13][ri(0,2)],0.28,0);
+    else if(art==='obsidian'&&R()<0.6)part(30+R()*196,104,(R()-.5)*22,-25-R()*38,[8,9,10][ri(0,2)],0.65,-8);
+    else if(art==='aether'&&R()<0.65)part(30+R()*196,104,(R()-.5)*16,-20-R()*30,[14,2,10,7][ri(0,3)],0.75,-6);
+    else if(art==='victory'&&R()<0.75)part(24+R()*208,110,(R()-.5)*30,-35-R()*45,[10,9,7,11][ri(0,3)],0.9,-10);
+
+    updateFx(dt);
+    if(CS.lockT<=0&&(hit('Enter','NumpadEnter','Space','KeyJ','KeyZ')||mouse.lHit)){
+      if(CS.charIdx<curLine.length){
+        CS.charIdx=curLine.length;
+      }else if(CS.lineIdx<CS.data.lines.length-1){
+        CS.lineIdx++;CS.charIdx=0;CS.charT=0;sfx('blip');
+      }else{
+        CS.active=false;
+        clearInputEdge();
+        if(CS.onDone)CS.onDone();
+      }
+    }
+    if(CS.lockT<=0&&hit('Escape')){
+      CS.active=false;
+      clearInputEdge();
+      if(CS.onDone)CS.onDone();
+    }
+    return;
+  }
+
+  if(hit('KeyL')){
+    loreOpen=!loreOpen;
+    if(loreOpen&&G)lorePage=(G.floor-1)%STORY_CHRONICLES.length;
+    sfx('blip');
+  }
   if(loreOpen){
-    if(hit('KeyA','ArrowLeft')){lorePage=(lorePage+LORE_ENTRIES.length-1)%LORE_ENTRIES.length;sfx('blip');}
-    if(hit('KeyD','ArrowRight')){lorePage=(lorePage+1)%LORE_ENTRIES.length;sfx('blip');}
-    if(hit('Escape'))loreOpen=false;
+    if(hit('KeyA','ArrowLeft')){lorePage=(lorePage+STORY_CHRONICLES.length-1)%STORY_CHRONICLES.length;sfx('blip');}
+    if(hit('KeyD','ArrowRight')){lorePage=(lorePage+1)%STORY_CHRONICLES.length;sfx('blip');}
+    if(hit('Escape','KeyE','Space','Enter')){loreOpen=false;clearInputEdge();sfx('blip');}
     return;
   }
   if(state==='title'){
     if(hit('KeyA','ArrowLeft'))cycleFlame(-1);
     if(hit('KeyD','ArrowRight'))cycleFlame(1);
-    if(mouse.lHit&&mouse.y>=96&&mouse.y<=116){
+    if(hit('KeyW','ArrowUp'))cycleCheckpoint(-1);
+    if(hit('KeyS','ArrowDown'))cycleCheckpoint(1);
+    if(mouse.lHit&&mouse.y>=96&&mouse.y<=114){
       if(mouse.x<W/2)cycleFlame(-1);else cycleFlame(1);
+    }
+    if(mouse.lHit&&mouse.y>=116&&mouse.y<=128){
+      cycleCheckpoint(1);
     }
     if(hit('Enter','NumpadEnter')||(mouse.lHit&&mouse.y>185)){
       const cur=getPreviewFlame();
@@ -1170,16 +1538,24 @@ function update(dt){
         SAVE.selected=cur.id;
         saveGame();
         sfx('unlock');
-        newRun();
+        startLoading('newrun','IGNITING UNIT-09');
       }
     }
     if(R()<.5)part(112+R()*32,68,(R()-.5)*20,-30-R()*40,[8,9,10][ri(0,2)],0.8+R()*0.6,-10);
     updateFx(dt);
   }
   else if(state==='play')updatePlay(dt);
-  else if(state==='clear'){clearT-=dt;updateFx(dt);if(clearT<=0){if(G.floor>=50){state='win';if(!SAVE.unlocked.includes('solar')){SAVE.unlocked.push('solar');saveGame();}sfx('unlock');}else openShop();}}
+  else if(state==='clear'){
+    clearT-=dt;updateFx(dt);
+    if(clearT<=0){
+      if(G.floor>=50){
+        if(!SAVE.unlocked.includes('solar')){SAVE.unlocked.push('solar');saveGame();}
+        playCutscene('finale',()=>{clearInputEdge();state='win';sfx('unlock');});
+      }else openShop();
+    }
+  }
   else if(state==='shop')updateShop();
-  else if(state==='over'||state==='win'){updateFx(dt);if(state==='win'&&R()<.3)part(R()*W,H,(R()-.5)*10,-40-R()*40,[10,9,7][ri(0,2)],1.5,0);if(hit('KeyR')){sfx('unlock');newRun();}}
+  else if(state==='over'||state==='win'){updateFx(dt);if(state==='win'&&R()<.3)part(R()*W,H,(R()-.5)*10,-40-R()*40,[10,9,7][ri(0,2)],1.5,0);if(hit('KeyR')){sfx('unlock');newRun(true,selectedCheckpoint);}}
 }
 
 // ================= LIGHTING (palette-safe ordered dither) =================
@@ -1279,11 +1655,9 @@ function renderWorld(){
     else blit(SP.bolt,p.x-4,p.y-4);
   }
   applyLight(lightSources(),G.floor<=4?2:3,192);
-  // Emissive layer after lighting
   for(const a of F.arcs){const x=(a.i%GW)*16,y=(a.i/GW|0)*16;let lx=x,ly=y+4+R()*8;for(let k=1;k<=4;k++){const nx=x+k*4,ny=y+2+R()*12;line(lx,ly,nx,ny,k%2?10:7);lx=nx;ly=ny;}}
   for(const p of parts){ctx.fillStyle=PAL[p.c];ctx.fillRect(Math.round(p.x),Math.round(p.y),p.s,p.s);}
 
-  // Aiming trajectory dots from player toward mouse crosshair
   if(!P.dead&&mouse.inBounds&&mouse.y>=HUD){
     const mx=mouse.x,my=mouse.y-HUD;
     const dx=mx-P.x,dy=my-P.y,dist=Math.hypot(dx,dy);
@@ -1298,7 +1672,6 @@ function renderWorld(){
     }
   }
 
-  // Aether Dynamo charge pips bar (shown when Dynamo upgrade is active)
   if(!P.dead&&G.upg.dynamo){
     const bw=38,bh=7,bx=Math.round(P.x+10),by=Math.round(P.y-3);
     const clampedX=clamp(bx,8,W-bw-8),clampedY=clamp(by,8,192-bh-8);
@@ -1308,11 +1681,8 @@ function renderWorld(){
     const filled=Math.floor(G.dynamoCharge*4);
     for(let k=0;k<4;k++){
       const px0=clampedX+4+k*8;
-      if(k<filled){
-        rect(px0,clampedY+2,3,3,7);
-      }else{
-        px(px0+1,clampedY+3,13);
-      }
+      if(k<filled)rect(px0,clampedY+2,3,3,7);
+      else px(px0+1,clampedY+3,13);
     }
   }
 
@@ -1320,8 +1690,8 @@ function renderWorld(){
     if(e.type==='clock'&&e.state==='alert')tele(e.x,e.y-14);
     if(e.type==='drone'&&e.charging){const r=7+((frame>>2)%3);circ(e.x,e.y-2+e.bob,r,12);if(frame%4<2)circ(e.x,e.y-2+e.bob,r-3,7);}
     if(e.type==='beetle'&&e.state==='charge'){const k=1-e.t/0.7;circ(e.x,e.y,4+k*18,frame%4<2?10:7);circ(e.x,e.y,22,frame%6<3?10:9);}
-    if(e.boss){if(e.state==='windC'||e.state==='windV'){tele(e.x,e.y-22);circ(e.x,e.y,18,frame%4<2?8:10);}
-      rect(e.x-14,e.y-20,28,3,0);rect(e.x-13,e.y-19,Math.max(0,Math.round(26*e.hp/e.maxhp)),1,8);}
+    if(e.boss){if(e.state==='windC'||e.state==='windV'||e.state==='windSpread'){tele(e.x,e.y-22);circ(e.x,e.y,18,frame%4<2?8:10);}
+      rect(e.x-16,e.y-21,32,4,0);rect(e.x-15,e.y-20,Math.max(0,Math.round(30*e.hp/e.maxhp)),2,e.hp<e.maxhp*0.5?10:8);}
   }
   const ccx=Math.floor(P.x/16),ccy=Math.floor(P.y/16);
   for(let yy=ccy-1;yy<=ccy+1;yy++)for(let xx=ccx-1;xx<=ccx+1;xx++){
@@ -1351,32 +1721,213 @@ function renderHUD(){
   if(CON.god){const gs='GOD';drawText(gs,W-4-textW(gs),19,10);}
   else if(P.charging&&frame%20<14){const rs='REFUEL';drawText(rs,W-4-textW(rs),19,11);}
 }
+
+// ================= 8-SECOND LOADING SCREEN =================
+function renderLoading(){
+  const pct=clamp(loadState.t/loadState.dur,0,1);
+  const rem=Math.max(0,loadState.dur-loadState.t).toFixed(1);
+  const af=Math.floor(time*8)%2;
+
+  for(let y=0;y<14;y++)for(let x=0;x<16;x++){
+    if((x+y)%2===0)px(x*16+8,y*16+8,1);
+  }
+  rect(14,16,228,192,0);rect(14,16,228,1,9);rect(14,207,228,1,9);rect(14,16,1,192,9);rect(241,16,1,192,9);
+
+  drawTextC('CINDERGEAR OS v5.2',26,10,1);
+  drawTextC(loadState.label,38,9,1);
+
+  const fl=getPreviewFlame();
+  const pset=SP.playerSets[fl.id]||SP.playerSets.amber;
+  blit(pset.n[af],104,50,48,48);
+  for(let k=0;k<6;k++){
+    const ang=time*3+k*(Math.PI/3);
+    const ox=128+Math.cos(ang)*34;
+    const oy=74+Math.sin(ang)*14;
+    rect(ox-1,oy-1,3,3,k%2?10:8);
+  }
+
+  const bootSteps=[
+    {t:0.5,txt:'[OK] LOADING 50-FLOOR CHRONICLES',c:11},
+    {t:2.2,txt:'[OK] CALIBRATING THERMAL CHAMBER',c:11},
+    {t:4.0,txt:'[OK] IGNITING '+fl.name,c:12},
+    {t:5.8,txt:'[OK] SYNCING SYNTHESIS AUDIO BUS',c:11},
+    {t:7.2,txt:'[READY] DESCENDING INTO ABYSS...',c:10}
+  ];
+  bootSteps.forEach((bs,idx)=>{
+    if(loadState.t>=bs.t){
+      drawText(bs.txt,24,104+idx*8,bs.c);
+    }
+  });
+
+  const bx=28,by=150,bw=200,bh=12;
+  rect(bx-1,by-1,bw+2,bh+2,6);rect(bx,by,bw,bh,1);
+  const fw=Math.round(bw*pct);
+  rect(bx,by,fw,bh,9);
+  if(fw>0)rect(bx,by,fw,3,10);
+  drawTextC(Math.floor(pct*100)+'%  ('+rem+'S)',168,7);
+  drawTextC('[SPACE / ENTER TO SKIP]',194,5);
+
+  for(const p of parts){ctx.fillStyle=PAL[p.c];ctx.fillRect(Math.round(p.x),Math.round(p.y),p.s,p.s);}
+}
+
+// ================= FULL-SCREEN ANIMATED CUTSCENES =================
+function renderCutscene(){
+  const af=Math.floor(time*6)%2;
+  const bob=Math.round(Math.sin(time*4)*2);
+  rect(10,10,236,204,0);rect(10,10,236,1,10);rect(10,213,236,1,10);rect(10,10,1,204,10);rect(245,10,1,204,10);
+
+  drawTextC(CS.data.title,18,10,1);
+  rect(18,28,220,1,5);
+
+  // Animated Illustration Viewport (y: 32..114)
+  const vx=24,vy=32,vw=208,vh=82;
+  rect(vx,vy,vw,vh,1);
+
+  // Animated parallax background stars/embers inside viewport
+  for(let k=0;k<14;k++){
+    const sx=vx+((k*37+Math.floor(time*(12+k%4)*6))%vw);
+    const sy=vy+6+((k*19)%66);
+    px(sx,sy,k%3===0?7:k%2===0?13:5);
+  }
+
+  const art=CS.data.art;
+  if(art==='awakening'){
+    for(let x=0;x<13;x++)blit(SP.wall,24+x*16,98);
+    // Pulsing thermal aura
+    circ(128,82,22+Math.round(Math.sin(time*6)*4),2);
+    circ(128,82,14+Math.round(Math.cos(time*8)*3),4);
+    blit(SP.braz[af],46,82);blit(SP.braz[1-af],194,82);
+    const pset=SP.playerSets[getFlame().id]||SP.playerSets.amber;
+    blit(pset.n[af],112,64+bob,32,32);
+  }else if(art==='aqueduct'){
+    for(let x=0;x<13;x++)blit(SP.water[(af+x)%2],24+x*16,98);
+    // Rising steam waves
+    for(let k=0;k<4;k++){
+      const sx=42+k*44+Math.round(Math.sin(time*3+k)*4);
+      blit(SP.steam[(af+k)%2],sx,80-k*4);
+    }
+    blit(SP.ice,44,82);blit(SP.ice,196,82);
+    blit(SP.bossSets[15].n[af],112,62+bob,32,32);
+  }else if(art==='voltaic'){
+    for(let x=0;x<13;x++)blit(SP.grate,24+x*16,98);
+    // Jagged animated lightning arcs across the ceiling
+    for(let arc=0;arc<2;arc++){
+      let lx=32,ly=44+arc*12;
+      for(let s=1;s<=12;s++){
+        const nx=32+s*16,ny=44+arc*12+Math.round(Math.sin(time*22+s*2+arc)*6);
+        line(lx,ly,nx,ny,s%2?10:7);lx=nx;ly=ny;
+      }
+    }
+    const patrolX=Math.round(Math.sin(time*2)*12);
+    blit(SP.beetle.n[af],56+patrolX,82);
+    blit(SP.knight.f[af],184-patrolX,82);
+    blit(SP.bossSets[25].n[af],112,62+bob,32,32);
+  }else if(art==='obsidian'){
+    for(let x=0;x<13;x++)blit(SP.ash[x%2],24+x*16,98);
+    // Rising magma pillars
+    for(let k=0;k<3;k++){
+      const mh=10+Math.round(Math.sin(time*5+k*2)*6);
+      rect(68+k*56,98-mh,6,mh,8);
+      rect(70+k*56,98-mh,2,mh,10);
+    }
+    blit(SP.shrine[af],48,82);blit(SP.barrel,192,82);
+    blit(SP.bossSets[35].n[af],112,62+bob,32,32);
+  }else if(art==='aether'){
+    for(let x=0;x<13;x++)blit(SP.biomeFloors[4][0],24+x*16,98);
+    // Vertical Aether reactor beam
+    const bw=12+Math.round(Math.sin(time*10)*4);
+    rect(128-bw/2,32,bw,66,2);
+    rect(128-bw/4,32,bw/2,66,14);
+    blit(SP.tablet[af],52,82);blit(SP.tablet[1-af],188,82);
+    blit(SP.bossSets[50].n[af],112,62+bob,32,32);
+  }else if(art==='victory'){
+    for(let x=0;x<13;x++)blit(SP.biomeFloors[4][1],24+x*16,98);
+    // Golden sunbeams radiating from crown
+    for(let r=0;r<8;r++){
+      const ang=(r/8)*Math.PI*2+time*0.8;
+      line(128,64,128+Math.cos(ang)*90,64+Math.sin(ang)*40,r%2?10:9);
+    }
+    const pset=SP.playerSets.solar||SP.playerSets.amber;
+    blit(pset.n[af],112,66,32,32);
+    blit(SP.crown,120,48+bob,16,16);
+  }
+
+  // Border frame over viewport to clip clean edges
+  rect(23,31,210,1,6);rect(23,114,210,1,6);rect(23,31,1,84,6);rect(232,31,1,84,6);
+  for(const p of parts){ctx.fillStyle=PAL[p.c];ctx.fillRect(Math.round(p.x),Math.round(p.y),p.s,p.s);}
+
+  // Word-Wrapped Dialogue Box (y: 120..192)
+  rect(18,120,220,72,0);rect(18,120,220,1,6);rect(18,191,220,1,6);
+  const full=CS.data.lines[CS.lineIdx]||'';
+  const shown=full.slice(0,CS.charIdx);
+  const wrapped=wrapText(shown,34);
+  wrapped.forEach((ln,i)=>{
+    if(128+i*11<185)drawText(ln,24,128+i*11,7);
+  });
+
+  drawText('ACT '+(CS.lineIdx+1)+'/'+CS.data.lines.length,24,180,13);
+  const prompt=CS.lineIdx<CS.data.lines.length-1?'[ENTER: NEXT]':'[ENTER: CONTINUE]';
+  if(Math.floor(time*3)%2===0)drawTextC(prompt,198,10);
+}
+
+// ================= FULL-PARAGRAPH LORE READER OVERLAY =================
+function renderLoreOverlay(){
+  ctx.drawImage(SP.dither,0,0);
+  rect(8,12,240,200,0);rect(8,12,240,1,12);rect(8,211,240,1,12);rect(8,12,1,200,12);rect(247,12,1,200,12);
+
+  drawTextC('ABYSSAL ARCHIVE ('+SAVE.lore.length+'/50)',18,12,1);
+  const entry=STORY_CHRONICLES[lorePage]||STORY_CHRONICLES[0];
+  const unlocked=SAVE.lore.includes(lorePage);
+
+  rect(14,28,228,1,5);
+  drawTextC('< '+entry.title+' >',33,unlocked?10:8);
+  rect(14,42,228,1,5);
+
+  if(unlocked){
+    const lines=wrapText(entry.text,37);
+    lines.forEach((ln,i)=>{
+      if(48+i*9<186)drawText(ln,16,48+i*9,7);
+    });
+  }else{
+    drawTextC('CHRONICLE LOCKED',84,8);
+    drawTextC('DISCOVER THE STONE TABLET',102,6);
+    drawTextC('ON FLOOR '+pad2(lorePage+1)+' TO DECODE',114,6);
+    drawTextC('THIS CHAPTER OF THE STORY.',126,6);
+  }
+
+  rect(14,192,228,1,5);
+  drawTextC('A/D: FLR '+pad2(lorePage+1)+'/50   [E/L/ESC]: CLOSE',198,13);
+}
+
 const TFV=Array.from({length:16*14},()=>ri(0,2));
 function renderTitle(){
   const af=Math.floor(time*6)%2;
   for(let y=0;y<14;y++)for(let x=0;x<16;x++){const wall=y===0||y===13||x===0||x===15;blit(wall?SP.wall:SP.floor[TFV[y*16+x]],x*16,y*16);if(y===0&&(x===2||x===6||x===9||x===13))blit(SP.torch[(af+x)%2],x*16,0);}
   const fl=()=>R()*6;
   applyLight([{x:40,y:8,r:46+fl()},{x:104,y:8,r:46+fl()},{x:152,y:8,r:46+fl()},{x:216,y:8,r:46+fl()},{x:128,y:52,r:70+fl()},{x:128,y:150,r:96}],3,224);
-  rect(14,84,228,112,0);rect(14,84,228,1,5);rect(14,195,228,1,5);
+  rect(14,82,228,116,0);rect(14,82,228,1,5);rect(14,197,228,1,5);
   const curFl=getPreviewFlame();
   const pset=SP.playerSets[curFl.id]||SP.playerSets.amber;
   blit(pset.n[af],100,8,56,56);
   for(const p of parts){ctx.fillStyle=PAL[p.c];ctx.fillRect(Math.round(p.x),Math.round(p.y),p.s,p.s);}
-  drawTextC('CINDERGEAR',66,10,2,8);
-  drawTextC('50-FLOOR ABYSSAL DESCENT',88,9);
+  drawTextC('CINDERGEAR',64,10,2,8);
+  drawTextC('50-FLOOR ABYSSAL DESCENT',86,9);
 
   const owned=SAVE.unlocked.includes(curFl.id);
   const coreLabel='< '+curFl.name+(owned?'':' ['+curFl.cost+' SHARDS]')+' >';
-  drawTextC(coreLabel,100,owned?curFl.c2:8);
-  drawTextC(curFl.desc,109,6);
-  drawTextC('SHARDS: '+SAVE.bank+'   BEST FLR: '+pad2(SAVE.bestFloor)+'/50',120,12);
+  drawTextC(coreLabel,97,owned?curFl.c2:8);
+  drawTextC(curFl.desc,106,6);
 
-  const L=[['WASD + MOUSE','MOVE & AIM'],['CLICK / J / K','SHOOT & DASH'],['[E] INTERACT','[L] LORE CODEX']];
-  L.forEach(([a,b],k)=>{drawText(a,24,136+k*11,10);drawText(b,122,136+k*11,6);});
-  drawTextC('REACH FLOOR 50. CLAIM THE SOLAR CROWN.',176,14);
+  const cpLabel='START: FLR '+pad2(selectedCheckpoint)+(SAVE.checkpoints.length>1?' (W/S)':'');
+  drawTextC(cpLabel,117,11);
+  drawTextC('SHARDS: '+SAVE.bank+'  BEST: '+pad2(SAVE.bestFloor)+'  LORE: '+SAVE.lore.length+'/50',127,12);
+
+  const L=[['WASD + MOUSE','MOVE & AIM'],['CLICK / J / K','SHOOT & DASH'],['[E] READ TABLET','[L] STORY CODEX']];
+  L.forEach(([a,b],k)=>{drawText(a,24,140+k*10,10);drawText(b,122,140+k*10,6);});
+  drawTextC('REACH FLOOR 50. CLAIM THE SOLAR CROWN.',178,14);
   const prompt=owned?'[PRESS ENTER TO IGNITE]':(SAVE.bank>=curFl.cost?'[PRESS ENTER TO UNLOCK]':'[LOCKED - EARN SHARDS]');
-  if(Math.floor(time*2.5)%2===0)drawTextC(prompt,202,owned?10:(SAVE.bank>=curFl.cost?11:8));
-  drawTextC('A/D: CHANGE FLAME CORE',214,5);
+  if(Math.floor(time*2.5)%2===0)drawTextC(prompt,203,owned?10:(SAVE.bank>=curFl.cost?11:8));
+  drawTextC('A/D: FLAME CORE   W/S: CHECKPOINT',214,5);
 }
 function renderShop(){
   const af=Math.floor(time*6)%2;
@@ -1406,23 +1957,7 @@ function renderEnd(){
   else{blit(SP.playerSets.amber.w[0],112,48,32,32);drawTextC('THE FLAME FADES',86,8,2,2);}
   const lines=[['FLOOR REACHED',pad2(G.floor)+'/50'],['ENEMIES MELTED',String(G.stats.kills)],['BARRELS DETONATED',String(G.stats.barrels)],['GEMS COLLECTED',String(G.stats.gems)]];
   lines.forEach(([a,b],k)=>{drawText(a,40,112+k*12,6);drawText(b,216-textW(b),112+k*12,10);});
-  if(Math.floor(time*2.5)%2===0)drawTextC('[PRESS R TO RETRY]',172,win?10:9);
-}
-function renderLoreOverlay(){
-  ctx.drawImage(SP.dither,0,0);
-  rect(16,24,224,176,0);rect(16,24,224,1,12);rect(16,199,224,1,12);rect(16,24,1,176,12);rect(239,24,1,176,12);
-  drawTextC('LORE CODEX ('+SAVE.lore.length+'/10)',32,12,1);
-  const entry=LORE_ENTRIES[lorePage];
-  const unlocked=SAVE.lore.includes(lorePage);
-  drawTextC('< '+entry.title+' >',48,unlocked?10:5);
-  if(unlocked){
-    entry.lines.forEach((ln,i)=>drawTextC(ln,72+i*14,7));
-  }else{
-    drawTextC('ENTRY LOCKED',84,8);
-    drawTextC('FIND STONE TABLETS IN',104,6);
-    drawTextC('THE DUNGEON TO DECODE',116,6);
-  }
-  drawTextC('A/D: PAGE   [L] OR ESC: CLOSE',184,13);
+  if(Math.floor(time*2.5)%2===0)drawTextC('[PRESS R TO RETRY FLR '+pad2(selectedCheckpoint)+']',172,win?10:9);
 }
 function renderConsoleOverlay(){
   const ch=84;
@@ -1444,12 +1979,15 @@ function renderConsoleOverlay(){
 }
 function render(){
   ctx.fillStyle=PAL[0];ctx.fillRect(0,0,W,H);
-  if(state==='title')renderTitle();
+  if(state==='loading')renderLoading();
+  else if(state==='cutscene')renderCutscene();
+  else if(state==='title')renderTitle();
   else if(state==='shop')renderShop();
   else{
     renderWorld();renderHUD();
-    if(state==='clear'){const w=156,x=(W-w)/2;rect(x,96,w,34,0);rect(x,96,w,1,10);rect(x,129,w,1,10);
-      drawTextC(G.floor>=50?'SOLAR CROWN YOURS!':'FLOOR CLEARED!',104,10);drawTextC(G.floor>=50?'ASCENDING...':'DESCENDING...',116,6);}
+    if(state==='clear'){const w=164,x=(W-w)/2;rect(x,94,w,38,0);rect(x,94,w,1,10);rect(x,131,w,1,10);
+      drawTextC(G.floor>=50?'SOLAR CROWN YOURS!':(G.floor%5===0?'CHECKPOINT SAVED!':'FLOOR CLEARED!'),102,10);
+      drawTextC(G.floor>=50?'ASCENDING...':'DESCENDING...',116,6);}
     if(state==='over'||state==='win')renderEnd();
   }
   if(loreOpen)renderLoreOverlay();
@@ -1464,10 +2002,11 @@ function render(){
 }
 
 // ================= MAIN LOOP =================
+startLoading('title','INITIALIZING CORE');
 let last=performance.now(),acc=0;const STEP=1/60;
 function loop(now){
   let d=(now-last)/1000;last=now;if(d>0.1)d=0.1;acc+=d;
-  while(acc>=STEP){update(STEP);for(const k in pressed)delete pressed[k];mouse.lHit=false;mouse.rHit=false;acc-=STEP;}
+  while(acc>=STEP){update(STEP);clearInputEdge();acc-=STEP;}
   render();requestAnimationFrame(loop);
 }
 cv.focus();
