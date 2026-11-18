@@ -89,16 +89,16 @@ const BIOME_INTROS={
 function getBiome(n){return BIOMES[Math.min(4,Math.floor((n-1)/10))];}
 
 const BOSS_DATA={
-  5:{name:'IRON WARDEN',hp:32,type:'warden',c1:9,c2:4},
-  10:{name:'THE CROWN WARDEN',hp:54,type:'warden',c1:10,c2:8},
-  15:{name:'BRINE LEVIATHAN',hp:76,type:'leviathan',c1:12,c2:1},
-  20:{name:'CRYO-MATRIARCH',hp:98,type:'cryo',c1:7,c2:12},
-  25:{name:'VOLT SOVEREIGN',hp:122,type:'volt',c1:10,c2:13},
-  30:{name:'GRAND INQUISITOR',hp:148,type:'inquisitor',c1:6,c2:8},
-  35:{name:'MAGMA BEHEMOTH',hp:176,type:'magma',c1:8,c2:9},
-  40:{name:'AETHER WEAVER',hp:205,type:'weaver',c1:14,c2:2},
-  45:{name:'OMEGA SENTINEL',hp:240,type:'omega',c1:10,c2:8},
-  50:{name:'THE PRIME IGNITER',hp:310,type:'prime',c1:7,c2:10}
+  5:{name:'IRON WARDEN',hp:36,type:'warden',c1:9,c2:4},
+  10:{name:'THE CROWN WARDEN',hp:60,type:'warden',c1:10,c2:8},
+  15:{name:'BRINE LEVIATHAN',hp:84,type:'leviathan',c1:12,c2:1},
+  20:{name:'CRYO-MATRIARCH',hp:108,type:'cryo',c1:7,c2:12},
+  25:{name:'VOLT SOVEREIGN',hp:134,type:'volt',c1:10,c2:13},
+  30:{name:'GRAND INQUISITOR',hp:162,type:'inquisitor',c1:6,c2:8},
+  35:{name:'MAGMA BEHEMOTH',hp:192,type:'magma',c1:8,c2:9},
+  40:{name:'AETHER WEAVER',hp:224,type:'weaver',c1:14,c2:2},
+  45:{name:'OMEGA SENTINEL',hp:260,type:'omega',c1:10,c2:8},
+  50:{name:'THE PRIME IGNITER',hp:340,type:'prime',c1:7,c2:10}
 };
 
 const STORY_CHRONICLES=[
@@ -232,12 +232,13 @@ const CUTSCENES={
   }
 };
 
-let CS={active:false,data:null,lineIdx:0,charIdx:0,charT:0,lockT:0,onDone:null};
+let CS={active:false,data:null,lineIdx:0,charIdx:0,charT:0,lockT:0,sceneT:0,onDone:null};
 function playCutscene(key,onDone){
   const data=CUTSCENES[key];
   if(!data){if(onDone)onDone();return;}
   clearInputEdge();
-  CS={active:true,data,lineIdx:0,charIdx:0,charT:0,lockT:0.25,onDone};
+  parts=[];
+  CS={active:true,data,lineIdx:0,charIdx:0,charT:0,lockT:0.25,sceneT:0,onDone};
   state='cutscene';
   sfx('unlock');
 }
@@ -777,8 +778,8 @@ function mkEnemy(type,cx,cy,n){
   if(type==='turret'){e.hp=Math.round((3+Math.floor(n/4))*scale);e.fireT=1.4+R()*1.2;e.state='idle';}
   if(type==='knight'){e.hp=Math.round((4+Math.floor(n/3))*scale);e.dir={x:R()<.5?1:-1,y:0};e.face=e.dir.x;e.t=1.5+R();}
   if(type==='boss'){
-    const bd=BOSS_DATA[n]||{name:'IRON WARDEN',hp:35+n*5,type:'warden'};
-    e.hp=bd.hp;e.maxhp=e.hp;e.hw=7;e.hh=7;e.state='chase';e.t=1.1;e.boss=true;e.bossType=bd.type;e.bossName=bd.name;e.bossFloor=n;e.atkCycle=0;
+    const bd=BOSS_DATA[n]||{name:'IRON WARDEN',hp:36+n*5,type:'warden'};
+    e.hp=bd.hp;e.maxhp=e.hp;e.hw=7;e.hh=7;e.state='chase';e.t=1.0;e.boss=true;e.bossType=bd.type;e.bossName=bd.name;e.bossFloor=n;e.atkCycle=0;
   }
   return e;
 }
@@ -801,7 +802,7 @@ function genFloor(n){
       let dx=Math.sign(b.x-x),dy=Math.sign(b.y-y);
       if(R()<0.3){if(R()<.5){dx=R()<.5?-1:1;dy=0;}else{dy=R()<.5?-1:1;dx=0;}}
       else if(dx&&dy){if(R()<.5)dx=0;else dy=0;}
-      if(inner(x+dx,y+dy)){x+=dx;y+=dy;}protect(x,y);
+      if(inner(x+dx,y+dy)){x+=dx;y+dy;}protect(x,y);
     }
     while(x!==b.x){x+=Math.sign(b.x-x);protect(x,y);}
     while(y!==b.y){y+=Math.sign(b.y-y);protect(x,y);}
@@ -1250,7 +1251,6 @@ function updateEnemies(dt){
           else{e.state='windV';e.t=0.55;sfx('charge');}
         }
       }else if(e.state==='windSpread'){
-        // Aimed 5-way or 7-way fan barrage
         if(e.t<=0){
           const baseAng=Math.atan2(dy,dx);
           const count=enraged?7:5;
@@ -1274,7 +1274,6 @@ function updateEnemies(dt){
         if(r||e.t<=0){
           shake=Math.max(shake,5);
           sparks(e.x,e.y,14,[8,9,10,7],100);
-          // Slam shockwave ring
           const ringN=enraged?10:6;
           for(let k=0;k<ringN;k++){
             const a=(k/ringN)*Math.PI*2;
@@ -1458,8 +1457,9 @@ function update(dt){
     return;
   }
 
-  // Interactive Story Cutscenes (Glitch-free edge lock & rich particles)
+  // Interactive Story Cutscenes
   if(state==='cutscene'&&CS.active){
+    CS.sceneT+=dt;
     if(CS.lockT>0)CS.lockT-=dt;
     const curLine=CS.data.lines[CS.lineIdx]||'';
     if(CS.charIdx<curLine.length){
@@ -1470,14 +1470,21 @@ function update(dt){
         if(CS.charIdx%5===0)sfx('blip');
       }
     }
-    // Scene-specific animated ambient particles
     const art=CS.data.art;
-    if(art==='awakening'&&R()<0.55)part(116+R()*24,68,(R()-.5)*18,-22-R()*32,[8,9,10][ri(0,2)],0.7,0);
-    else if(art==='aqueduct'&&R()<0.5)part(30+R()*196,98,(R()-.5)*10,-16-R()*24,[12,7,6][ri(0,2)],0.8,-5);
-    else if(art==='voltaic'&&R()<0.65)part(36+R()*184,46+R()*48,(R()-.5)*60,(R()-.5)*60,[10,7,13][ri(0,2)],0.28,0);
-    else if(art==='obsidian'&&R()<0.6)part(30+R()*196,104,(R()-.5)*22,-25-R()*38,[8,9,10][ri(0,2)],0.65,-8);
-    else if(art==='aether'&&R()<0.65)part(30+R()*196,104,(R()-.5)*16,-20-R()*30,[14,2,10,7][ri(0,3)],0.75,-6);
-    else if(art==='victory'&&R()<0.75)part(24+R()*208,110,(R()-.5)*30,-35-R()*45,[10,9,7,11][ri(0,3)],0.9,-10);
+    if(art==='awakening'){
+      if(R()<0.65)part(116+R()*24,72,(R()-.5)*22,-25-R()*35,[8,9,10,7][ri(0,3)],0.65,0);
+      if(R()<0.45)part(24+R()*208,34,(R()-.5)*14,18+R()*22,7,1.4,0);
+    }else if(art==='aqueduct'){
+      if(R()<0.6)part(28+R()*200,98,(R()-.5)*12,-18-R()*26,[12,7,6][ri(0,2)],0.85,-5);
+    }else if(art==='voltaic'){
+      if(R()<0.7)part(32+R()*192,42+R()*52,(R()-.5)*70,(R()-.5)*70,[10,7,13][ri(0,2)],0.28,0);
+    }else if(art==='obsidian'){
+      if(R()<0.7)part(28+R()*200,104,(R()-.5)*24,-28-R()*40,[8,9,10][ri(0,2)],0.65,-8);
+    }else if(art==='aether'){
+      if(R()<0.7)part(28+R()*200,104,(R()-.5)*18,-22-R()*32,[14,2,10,7][ri(0,3)],0.75,-6);
+    }else if(art==='victory'){
+      if(R()<0.8)part(24+R()*208,110,(R()-.5)*35,-38-R()*48,[10,9,7,11][ri(0,3)],0.9,-10);
+    }
 
     updateFx(dt);
     if(CS.lockT<=0&&(hit('Enter','NumpadEnter','Space','KeyJ','KeyZ')||mouse.lHit)){
@@ -1733,7 +1740,7 @@ function renderLoading(){
   }
   rect(14,16,228,192,0);rect(14,16,228,1,9);rect(14,207,228,1,9);rect(14,16,1,192,9);rect(241,16,1,192,9);
 
-  drawTextC('CINDERGEAR OS v5.2',26,10,1);
+  drawTextC('CINDERGEAR OS v5.3',26,10,1);
   drawTextC(loadState.label,38,9,1);
 
   const fl=getPreviewFlame();
@@ -1774,98 +1781,116 @@ function renderLoading(){
 function renderCutscene(){
   const af=Math.floor(time*6)%2;
   const bob=Math.round(Math.sin(time*4)*2);
+  const pan=Math.floor(time*16)%16;
   rect(10,10,236,204,0);rect(10,10,236,1,10);rect(10,213,236,1,10);rect(10,10,1,204,10);rect(245,10,1,204,10);
 
   drawTextC(CS.data.title,18,10,1);
   rect(18,28,220,1,5);
 
-  // Animated Illustration Viewport (y: 32..114)
   const vx=24,vy=32,vw=208,vh=82;
   rect(vx,vy,vw,vh,1);
 
-  // Animated parallax background stars/embers inside viewport
-  for(let k=0;k<14;k++){
-    const sx=vx+((k*37+Math.floor(time*(12+k%4)*6))%vw);
-    const sy=vy+6+((k*19)%66);
+  for(let p=0;p<5;p++){
+    const px0=vx+((p*48 - Math.floor(time*8))%vw + vw)%vw;
+    if(px0+6<vx+vw)rect(px0,vy,6,vh-16,0);
+  }
+  for(let k=0;k<16;k++){
+    const sx=vx+((k*37+Math.floor(time*(10+k%4)*6))%vw);
+    const sy=vy+6+((k*19)%58);
     px(sx,sy,k%3===0?7:k%2===0?13:5);
   }
 
   const art=CS.data.art;
   if(art==='awakening'){
-    for(let x=0;x<13;x++)blit(SP.wall,24+x*16,98);
-    // Pulsing thermal aura
-    circ(128,82,22+Math.round(Math.sin(time*6)*4),2);
-    circ(128,82,14+Math.round(Math.cos(time*8)*3),4);
-    blit(SP.braz[af],46,82);blit(SP.braz[1-af],194,82);
-    const pset=SP.playerSets[getFlame().id]||SP.playerSets.amber;
-    blit(pset.n[af],112,64+bob,32,32);
-  }else if(art==='aqueduct'){
-    for(let x=0;x<13;x++)blit(SP.water[(af+x)%2],24+x*16,98);
-    // Rising steam waves
-    for(let k=0;k<4;k++){
-      const sx=42+k*44+Math.round(Math.sin(time*3+k)*4);
-      blit(SP.steam[(af+k)%2],sx,80-k*4);
+    for(let x=-1;x<14;x++){
+      const tx=24+x*16-pan;
+      if(tx>=16&&tx<232)blit(SP.wall,tx,98);
     }
-    blit(SP.ice,44,82);blit(SP.ice,196,82);
+    const r1=24+Math.round(Math.sin(time*6)*5);
+    const r2=15+Math.round(Math.cos(time*8)*3);
+    circ(128,80,r1,2);
+    circ(128,80,r2,4);
+    circ(128,80,8,9);
+    blit(SP.braz[af],42,82);blit(SP.braz[1-af],198,82);
+    blit(SP.torch[af],78,52);blit(SP.torch[1-af],162,52);
+    const pset=SP.playerSets[getFlame().id]||SP.playerSets.amber;
+    blit(pset.n[af],112,62+bob,32,32);
+  }else if(art==='aqueduct'){
+    for(let x=-1;x<14;x++){
+      const tx=24+x*16-pan;
+      if(tx>=16&&tx<232)blit(SP.water[(af+x)%2],tx,98);
+    }
+    for(let k=0;k<4;k++){
+      const sx=38+k*44+Math.round(Math.sin(time*3+k)*5);
+      blit(SP.steam[(af+k)%2],sx,78-(k%2)*6);
+    }
+    blit(SP.ice,42,82);blit(SP.ice,198,82);
     blit(SP.bossSets[15].n[af],112,62+bob,32,32);
   }else if(art==='voltaic'){
-    for(let x=0;x<13;x++)blit(SP.grate,24+x*16,98);
-    // Jagged animated lightning arcs across the ceiling
+    for(let x=-1;x<14;x++){
+      const tx=24+x*16-pan;
+      if(tx>=16&&tx<232)blit(SP.grate,tx,98);
+    }
     for(let arc=0;arc<2;arc++){
-      let lx=32,ly=44+arc*12;
+      let lx=30,ly=44+arc*12;
       for(let s=1;s<=12;s++){
-        const nx=32+s*16,ny=44+arc*12+Math.round(Math.sin(time*22+s*2+arc)*6);
+        const nx=30+s*16,ny=44+arc*12+Math.round(Math.sin(time*24+s*2+arc)*6);
         line(lx,ly,nx,ny,s%2?10:7);lx=nx;ly=ny;
       }
     }
-    const patrolX=Math.round(Math.sin(time*2)*12);
-    blit(SP.beetle.n[af],56+patrolX,82);
-    blit(SP.knight.f[af],184-patrolX,82);
+    const patrolX=Math.round(Math.sin(time*2.2)*14);
+    blit(SP.beetle.n[af],54+patrolX,82);
+    blit(SP.knight.f[af],186-patrolX,82);
     blit(SP.bossSets[25].n[af],112,62+bob,32,32);
   }else if(art==='obsidian'){
-    for(let x=0;x<13;x++)blit(SP.ash[x%2],24+x*16,98);
-    // Rising magma pillars
-    for(let k=0;k<3;k++){
-      const mh=10+Math.round(Math.sin(time*5+k*2)*6);
-      rect(68+k*56,98-mh,6,mh,8);
-      rect(70+k*56,98-mh,2,mh,10);
+    for(let x=-1;x<14;x++){
+      const tx=24+x*16-pan;
+      if(tx>=16&&tx<232)blit(SP.ash[(x+1)%2],tx,98);
     }
-    blit(SP.shrine[af],48,82);blit(SP.barrel,192,82);
+    for(let k=0;k<3;k++){
+      const mh=12+Math.round(Math.sin(time*5+k*2)*7);
+      rect(66+k*56,98-mh,6,mh,8);
+      rect(68+k*56,98-mh,2,mh,10);
+    }
+    blit(SP.shrine[af],44,82);blit(SP.barrel,196,82);
     blit(SP.bossSets[35].n[af],112,62+bob,32,32);
   }else if(art==='aether'){
-    for(let x=0;x<13;x++)blit(SP.biomeFloors[4][0],24+x*16,98);
-    // Vertical Aether reactor beam
-    const bw=12+Math.round(Math.sin(time*10)*4);
+    for(let x=-1;x<14;x++){
+      const tx=24+x*16-pan;
+      if(tx>=16&&tx<232)blit(SP.biomeFloors[4][0],tx,98);
+    }
+    const bw=14+Math.round(Math.sin(time*10)*5);
     rect(128-bw/2,32,bw,66,2);
     rect(128-bw/4,32,bw/2,66,14);
-    blit(SP.tablet[af],52,82);blit(SP.tablet[1-af],188,82);
+    blit(SP.tablet[af],48,82);blit(SP.tablet[1-af],192,82);
     blit(SP.bossSets[50].n[af],112,62+bob,32,32);
   }else if(art==='victory'){
     for(let x=0;x<13;x++)blit(SP.biomeFloors[4][1],24+x*16,98);
-    // Golden sunbeams radiating from crown
-    for(let r=0;r<8;r++){
-      const ang=(r/8)*Math.PI*2+time*0.8;
-      line(128,64,128+Math.cos(ang)*90,64+Math.sin(ang)*40,r%2?10:9);
+    for(let r=0;r<10;r++){
+      const ang=(r/10)*Math.PI*2+time*0.9;
+      line(128,64,128+Math.cos(ang)*92,64+Math.sin(ang)*40,r%2?10:9);
     }
     const pset=SP.playerSets.solar||SP.playerSets.amber;
     blit(pset.n[af],112,66,32,32);
-    blit(SP.crown,120,48+bob,16,16);
+    blit(SP.crown,120,46+bob,16,16);
   }
 
-  // Border frame over viewport to clip clean edges
+  rect(11,31,12,84,0);rect(233,31,12,84,0);
   rect(23,31,210,1,6);rect(23,114,210,1,6);rect(23,31,1,84,6);rect(232,31,1,84,6);
   for(const p of parts){ctx.fillStyle=PAL[p.c];ctx.fillRect(Math.round(p.x),Math.round(p.y),p.s,p.s);}
 
-  // Word-Wrapped Dialogue Box (y: 120..192)
-  rect(18,120,220,72,0);rect(18,120,220,1,6);rect(18,191,220,1,6);
+  rect(18,120,220,72,0);
+  rect(18,120,220,1,6);rect(18,191,220,1,6);
+  rect(18,120,1,72,6);rect(237,120,1,72,6);
+
   const full=CS.data.lines[CS.lineIdx]||'';
   const shown=full.slice(0,CS.charIdx);
-  const wrapped=wrapText(shown,34);
+  const wrapped=wrapText(shown,32);
   wrapped.forEach((ln,i)=>{
-    if(128+i*11<185)drawText(ln,24,128+i*11,7);
+    if(128+i*11<178)drawText(ln,25,128+i*11,7);
   });
 
-  drawText('ACT '+(CS.lineIdx+1)+'/'+CS.data.lines.length,24,180,13);
+  drawText('ACT '+(CS.lineIdx+1)+'/'+CS.data.lines.length,25,180,13);
   const prompt=CS.lineIdx<CS.data.lines.length-1?'[ENTER: NEXT]':'[ENTER: CONTINUE]';
   if(Math.floor(time*3)%2===0)drawTextC(prompt,198,10);
 }
@@ -1884,7 +1909,7 @@ function renderLoreOverlay(){
   rect(14,42,228,1,5);
 
   if(unlocked){
-    const lines=wrapText(entry.text,37);
+    const lines=wrapText(entry.text,35);
     lines.forEach((ln,i)=>{
       if(48+i*9<186)drawText(ln,16,48+i*9,7);
     });
